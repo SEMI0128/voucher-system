@@ -4,226 +4,210 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>전표 통합 관리 시스템</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-:root{
-  --bg:#fff;--bg2:#f7f7f5;--bg3:#eeecea;
-  --text:#1a1a1a;--text2:#6b6b6b;--text3:#a0a0a0;
-  --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.2);
-  --r:8px;--rl:12px;
-  --blue:#185FA5;--bbg:#E6F1FB;--btx:#0C447C;
-  --red:#C62828;--rbg:#FFEBEE;
-  --grn:#2E7D32;--gbg:#E8F5E9;
-  --org:#E65100;--obg:#FFF3E0;
-}
+:root{--bg:#fff;--bg2:#f7f7f5;--bg3:#eeecea;--text:#1a1a1a;--text2:#6b6b6b;--text3:#a0a0a0;--bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.2);--r:8px;--rl:12px;--blue:#185FA5;--bbg:#E6F1FB;--btx:#0C447C;--red:#C62828;--rbg:#FFEBEE;--grn:#2E7D32;--gbg:#E8F5E9;--org:#E65100;--obg:#FFF3E0;}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg2)}
-/* 사이트 잠금 화면 */
-#lock-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);display:flex;align-items:center;justify-content:center;z-index:9999}
-.lock-box{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:48px 40px;width:100%;max-width:400px;text-align:center}
-.lock-logo{font-size:40px;margin-bottom:16px}
-.lock-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
-.lock-sub{font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:32px}
-.lock-input{width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px 16px;font-size:15px;color:#fff;text-align:center;letter-spacing:2px;outline:none;margin-bottom:16px}
-.lock-input::placeholder{color:rgba(255,255,255,0.3);letter-spacing:0}
-.lock-input:focus{border-color:rgba(255,255,255,0.4)}
-.lock-btn{width:100%;background:#185FA5;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;color:#fff;cursor:pointer}
-.lock-btn:hover{background:#1565C0}
-.lock-err{font-size:12px;color:#EF9A9A;margin-top:10px;display:none}
-/* 레이아웃 */
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg2);min-height:100vh}
+
+/* 사이트 잠금 */
+#site-lock{position:fixed;inset:0;background:var(--bg2);z-index:9999;display:flex;align-items:center;justify-content:center}
+.lock-box{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);padding:2.5rem 2rem;width:100%;max-width:380px;text-align:center;box-shadow:0 4px 40px rgba(0,0,0,.08)}
+.lock-logo{font-size:22px;font-weight:700;margin-bottom:6px}
+.lock-sub{font-size:13px;color:var(--text2);margin-bottom:1.5rem}
+.lock-err{font-size:12px;color:var(--red);margin-top:6px;display:none}
+
+/* 앱 레이아웃 */
+#app{display:none}
 .layout{display:flex;min-height:100vh}
-.sidebar{width:210px;background:var(--bg);border-right:0.5px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.sidebar{width:220px;background:var(--bg);border-right:0.5px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
 .sb-logo{padding:18px 16px 14px;border-bottom:0.5px solid var(--bd)}
 .sb-logo-t{font-size:13px;font-weight:700}
 .sb-logo-s{font-size:11px;color:var(--text3);margin-top:2px}
 .sb-nav{flex:1;padding:10px 8px;overflow-y:auto}
 .nav-sec{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.06em;padding:4px 8px;margin-top:10px;margin-bottom:3px}
-.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);border:none;background:none;width:100%;text-align:left}
-.nav-item:hover{background:var(--bg2);color:var(--text)}
-.nav-item.active{background:var(--bbg);color:var(--btx);font-weight:500}
+.nav-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);border:none;background:none;width:100%;text-align:left}
+.nav-btn:hover{background:var(--bg2);color:var(--text)}
+.nav-btn.on{background:var(--bbg);color:var(--btx);font-weight:500}
 .nb{margin-left:auto;font-size:10px;font-weight:700;background:#FF9800;color:#fff;padding:1px 5px;border-radius:8px}
 .sb-bottom{padding:10px 8px;border-top:0.5px solid var(--bd)}
 .mgmt-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);cursor:pointer;font-size:12px;width:100%;border:none;background:var(--bg2);color:var(--text2)}
 .mgmt-btn:hover{background:var(--bg3)}
 .mgmt-btn.on{background:var(--obg);color:var(--org);font-weight:500}
-.main{margin-left:210px;flex:1;display:flex;flex-direction:column}
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column}
 .topbar{background:var(--bg);border-bottom:0.5px solid var(--bd);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .topbar-t{font-size:15px;font-weight:600}
 .topbar-s{font-size:12px;color:var(--text3);margin-top:1px}
 .content{padding:20px 24px;flex:1}
+
 /* 버튼 */
 .btn{padding:7px 14px;border-radius:var(--r);cursor:pointer;font-size:13px;font-family:inherit;border:0.5px solid var(--bd2);background:var(--bg);color:var(--text);display:inline-flex;align-items:center;gap:5px}
 .btn:hover{background:var(--bg2)}
 .btn-p{background:var(--text);color:var(--bg);border-color:transparent}.btn-p:hover{opacity:.85}.btn-p:disabled{opacity:.4;cursor:not-allowed}
 .btn-sm{padding:4px 10px;font-size:11px}
-.btn-danger{background:var(--red);color:#fff;border-color:transparent}
-.btn-blue{background:var(--blue);color:#fff;border-color:transparent}
-.btn-green{background:#2E7D32;color:#fff;border-color:transparent}
+.btn-danger{background:var(--red);color:#fff;border-color:transparent}.btn-danger:hover{opacity:.85}
+.btn-blue{background:var(--blue);color:#fff;border-color:transparent}.btn-blue:hover{opacity:.85}
+.btn-grn{background:var(--grn);color:#fff;border-color:transparent}.btn-grn:hover{opacity:.85}
 .btn-org{background:var(--org);color:#fff;border-color:transparent}
+
 /* 폼 */
 input,select,textarea{font-size:13px;font-family:inherit;background:var(--bg2);border:0.5px solid var(--bd2);border-radius:var(--r);padding:8px 10px;color:var(--text);width:100%;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--blue);background:var(--bg)}
-input[readonly],input:disabled,select:disabled,textarea[readonly]{background:var(--bg3);color:var(--text2)}
+input[readonly],textarea[readonly]{background:var(--bg3);color:var(--text2);cursor:default}
 textarea{resize:vertical;min-height:60px}
 .fl{font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px}
 .fg{margin-bottom:12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-/* 카드 */
+
+/* 자동완성 */
+.ac-wrap{position:relative}
+.ac-list{position:absolute;top:100%;left:0;right:0;background:var(--bg);border:0.5px solid var(--bd2);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;max-height:180px;overflow-y:auto;display:none}
+.ac-item{padding:8px 12px;font-size:13px;cursor:pointer}
+.ac-item:hover,.ac-item.selected{background:var(--bbg);color:var(--btx)}
+
+/* 카드/메트릭 */
 .card{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);padding:18px 20px;margin-bottom:14px}
 .card-t{font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .sn{width:22px;height:22px;border-radius:50%;background:var(--text);color:var(--bg);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-/* 메트릭 */
 .mg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
 .metric{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);padding:14px 16px}
 .ml{font-size:12px;color:var(--text2);margin-bottom:5px}
 .mv{font-size:20px;font-weight:700}
 .ms{font-size:11px;color:var(--text3);margin-top:3px}
+
 /* 뱃지 */
 .badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:6px;white-space:nowrap}
-.b-card{background:#E3F2FD;color:#0D47A1}
-.b-buy{background:#FFF3E0;color:#BF360C}
-.b-manual{background:#F3E5F5;color:#4A148C}
-.b-none{background:#FFEBEE;color:#C62828}
-.b-ok{background:#E8F5E9;color:#1B5E20}
-.b-ALI{background:#FCE4EC;color:#880E4F}
-.b-아마존{background:#E8F5E9;color:#1B5E20}
-.b-중{background:#FFF8E1;color:#E65100}
-.b-라자다{background:#E3F2FD;color:#0D47A1}
-.b-라쿠텐{background:#F3E5F5;color:#4A148C}
-.b-쇼피{background:#FFCCBC;color:#BF360C}
-.b-큐텐{background:#E0F7FA;color:#006064}
-.b-월마트{background:#E8EAF6;color:#1A237E}
-.b-네이버{background:#E8F5E9;color:#2E7D32}
-.b-쿠팡{background:#FFF3E0;color:#BF360C}
-.b-카페24{background:#F3E5F5;color:#6A1B9A}
-.b-쇼피파이J{background:#E0F2F1;color:#004D40}
-.b-쇼피파이G{background:#FBE9E7;color:#C62828}
-.b-엘지유플러스{background:#E8EAF6;color:#283593}
-.b-광업{background:#EFEBE9;color:#3E2723}
-.b-일반도매{background:#F1F8E9;color:#33691E}
-.b-공통{background:#F5F5F5;color:#424242}
+.b-card{background:#E3F2FD;color:#0D47A1}.b-buy{background:#FFF3E0;color:#BF360C}
+.b-manual{background:#F3E5F5;color:#4A148C}.b-none{background:#FFEBEE;color:#C62828}
+
 /* 테이블 */
 .tw{overflow-x:auto;border:0.5px solid var(--bd);border-radius:var(--rl);background:var(--bg)}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{font-size:11px;font-weight:500;color:var(--text2);text-align:left;padding:8px 10px;border-bottom:0.5px solid var(--bd);white-space:nowrap;background:var(--bg2)}
 td{padding:7px 10px;border-bottom:0.5px solid var(--bd);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-.vrow{cursor:pointer}
-.vrow:hover td{background:#f0f4ff}
+.vrow{cursor:pointer}.vrow:hover td{background:#f0f4ff}
 .no-ch td{background:rgba(255,152,0,0.04)}
-/* 필터 */
+.no-evid td:first-child{color:var(--red)}
+
+/* 분개 테이블 */
+.jt{width:100%;border-collapse:collapse;font-size:12px}
+.jt th{background:var(--bg2);padding:7px 8px;font-weight:500;color:var(--text2);border:0.5px solid var(--bd);text-align:left}
+.jt td{padding:4px 5px;border:0.5px solid var(--bd)}
+.jt td input,.jt td select{border:none;background:transparent;padding:4px 6px;font-size:12px;min-width:0}
+.jt td input:focus,.jt td select:focus{background:var(--bbg);border-radius:4px}
+.jt tfoot td{background:var(--bg2);font-weight:600;font-size:12px;padding:6px 8px;border:0.5px solid var(--bd)}
+.jt-d{background:#f0f7ff}.jt-c{background:#fff8f0}
+.del-row{background:none;border:none;cursor:pointer;color:#fff;background:var(--red);border-radius:4px;padding:2px 6px;font-size:11px}
+
+/* 필터바 */
 .fb{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .fb input,.fb select{width:auto;font-size:12px;padding:6px 9px}
-/* 업로드 존 */
+
+/* 업로드존 */
 .uz{border:1.5px dashed var(--bd2);border-radius:var(--rl);padding:2rem;text-align:center;cursor:pointer}
 .uz:hover,.uz.drag{background:var(--bg2)}
-/* 날짜 범위 */
+
+/* 날짜범위 */
 .dr{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border-radius:var(--rl);border:0.5px solid var(--bd);margin-bottom:10px;flex-wrap:wrap}
 .dr input[type=date]{width:150px}
 .qb-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
 .qb{padding:3px 10px;font-size:11px;border-radius:6px;cursor:pointer;border:0.5px solid var(--bd2);background:var(--bg);color:var(--text2)}
 .qb:hover{background:var(--text);color:var(--bg);border-color:transparent}
+
 /* 모달 */
 .ov{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
-.modal{background:var(--bg);border-radius:var(--rl);width:100%;max-width:720px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.modal-sm{max-width:440px}
-.modal-lg{max-width:900px}
+.modal{background:var(--bg);border-radius:var(--rl);width:100%;max-width:760px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-sm{max-width:460px}
 .mh{padding:18px 20px 14px;border-bottom:0.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg);z-index:1}
 .mh-t{font-size:15px;font-weight:600}
 .mb{padding:20px}
 .mf{padding:12px 20px 18px;display:flex;gap:8px;justify-content:flex-end;border-top:0.5px solid var(--bd)}
 .mc{background:none;border:none;cursor:pointer;color:var(--text3);font-size:22px;line-height:1;padding:2px 6px;border-radius:4px}
 .mc:hover{background:var(--bg2);color:var(--text)}
-/* 분개 테이블 */
-.jt{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
-.jt th{background:var(--bg2);padding:6px 8px;font-weight:500;color:var(--text2);border:0.5px solid var(--bd);text-align:left}
-.jt td{padding:6px 8px;border:0.5px solid var(--bd)}
-.jt input,.jt select{padding:4px 6px;font-size:12px;border-radius:4px}
-/* 전표 직접 입력 */
-.voucher-form{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);padding:20px;margin-bottom:14px}
-.vf-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--blue)}
-.vf-title{font-size:16px;font-weight:700;color:var(--blue)}
-.vf-no{font-size:12px;color:var(--text3);font-family:monospace}
-.section-divider{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;padding:8px 0 6px;border-bottom:0.5px solid var(--bd);margin-bottom:12px}
-.jentry-row{display:grid;grid-template-columns:80px 1fr 1fr 100px 100px 100px 80px;gap:6px;align-items:center;margin-bottom:6px}
-.jentry-row input,.jentry-row select{font-size:12px;padding:5px 7px}
-.jentry-header{display:grid;grid-template-columns:80px 1fr 1fr 100px 100px 100px 80px;gap:6px;margin-bottom:4px}
-.jentry-header span{font-size:11px;font-weight:500;color:var(--text2);padding:0 4px}
-.total-row{display:flex;justify-content:flex-end;gap:20px;padding:10px 0;border-top:0.5px solid var(--bd);margin-top:8px}
-.total-item{font-size:13px}
-.total-item strong{font-size:16px;font-weight:700;margin-left:8px}
-.balance-ok{color:var(--grn)}
-.balance-err{color:var(--red)}
-/* 채널 분석 */
+
+/* 전표 섹션 */
+.es{margin-bottom:18px}
+.es-t{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding-bottom:6px;border-bottom:0.5px solid var(--bd)}
+
+/* 증빙파일 */
+.fi{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px}
+.fic{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700}
+.fic-pdf{background:#FFEBEE;color:#C62828}.fic-img{background:#E8F5E9;color:#2E7D32}.fic-etc{background:#E3F2FD;color:#0D47A1}
+.fn{flex:1;min-width:0}
+.fn-n{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fn-s{font-size:11px;color:var(--text3)}
+
+/* 채널분석 */
 .seg{display:flex;border-radius:var(--r);overflow:hidden;height:28px;margin-bottom:14px}
 .cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-bottom:18px}
 .cc{background:var(--bg);border:0.5px solid var(--bd);border-radius:var(--rl);padding:10px 12px}
-/* 토스트 */
+
+/* 이력 */
+.hi{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--bd)}
+.hi:last-child{border-bottom:none}
+
+/* 토스트/로딩 */
 .toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
-.t-success{background:#1B5E20;color:#fff}
-.t-error{background:#B71C1C;color:#fff}
-.t-info{background:#0D47A1;color:#fff}
-/* 로딩 */
-.loading{display:flex;align-items:center;justify-content:center;padding:4rem;color:var(--text3);gap:10px}
+.t-success{background:#1B5E20;color:#fff}.t-error{background:#B71C1C;color:#fff}.t-info{background:#0D47A1;color:#fff}
+.loading{display:flex;align-items:center;justify-content:center;padding:4rem;color:var(--text3);gap:10px;font-size:13px}
 .spin{width:18px;height:18px;border:2px solid var(--bd2);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty{text-align:center;padding:3rem;color:var(--text3);font-size:13px}
-.hi{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--bd)}
-.hi:last-child{border-bottom:none}
-/* 전표 상세 */
-.ds{margin-bottom:16px}
-.ds-t{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--bd)}
-/* 탭 (전표입력 내부) */
-.inner-tabs{display:flex;gap:2px;border-bottom:0.5px solid var(--bd);margin-bottom:16px}
-.inner-tab{padding:6px 14px;cursor:pointer;font-size:13px;color:var(--text2);border:none;border-bottom:2px solid transparent;background:none}
-.inner-tab.active{color:var(--blue);border-bottom:2px solid var(--blue);font-weight:500}
 </style>
 </head>
 <body>
 
-<!-- 사이트 잠금 화면 -->
-<div id="lock-screen">
+<!-- 사이트 잠금 -->
+<div id="site-lock">
   <div class="lock-box">
-    <div class="lock-logo">🔐</div>
-    <div class="lock-title">전표 통합 관리 시스템</div>
-    <div class="lock-sub">접속 비밀번호를 입력하세요</div>
-    <input type="password" class="lock-input" id="lock-pw" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')tryUnlock()">
-    <button class="lock-btn" onclick="tryUnlock()">접속</button>
-    <div id="lock-err" class="lock-err">비밀번호가 올바르지 않습니다.</div>
+    <div class="lock-logo">전표 통합 관리 시스템</div>
+    <div class="lock-sub">카드전표 + 매입전표 · 채널별 분석</div>
+    <div style="margin-bottom:1.2rem;padding:10px 14px;background:var(--bg2);border-radius:var(--r);font-size:12px;color:var(--text2)">사내 전용 시스템입니다. 접속 암호를 입력해주세요.</div>
+    <div class="fg"><label class="fl" style="text-align:left">접속 암호</label>
+      <input type="password" id="site-pw" placeholder="암호 입력">
+      <div id="site-pw-err" class="lock-err">암호가 올바르지 않습니다.</div>
+    </div>
+    <button class="btn btn-p" style="width:100%;justify-content:center;margin-top:4px" onclick="checkSitePw()">접속</button>
   </div>
 </div>
 
-<!-- 메인 앱 (잠금 해제 후 표시) -->
-<div id="app" style="display:none">
+<!-- 메인 앱 -->
+<div id="app">
 <div class="layout">
   <nav class="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-t">전표 통합 관리</div>
-      <div class="sb-logo-s">카드 + 매입 + 직접입력</div>
+      <div class="sb-logo-s">카드 + 매입 · 채널 분석</div>
     </div>
     <div class="sb-nav">
-      <div class="nav-sec">입력</div>
-      <button class="nav-item active" id="nav-entry" onclick="goPage('entry')">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 7h6M7 4v6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        전표 직접 입력
-      </button>
-      <button class="nav-item" id="nav-upload" onclick="goPage('upload')">
+      <div class="nav-sec">데이터 입력</div>
+      <button class="nav-btn on" id="nav-upload" onclick="goPage('upload')">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v9M7 1L3.5 4.5M7 1L10.5 4.5M1 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        파일 업로드
+        엑셀 업로드
       </button>
-      <div class="nav-sec">조회/분석</div>
-      <button class="nav-item" id="nav-list" onclick="goPage('list')">
+      <button class="nav-btn" id="nav-general" onclick="goPage('general')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 7h6M7 4v6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        일반전표 입력
+      </button>
+      <button class="nav-btn" id="nav-trade" onclick="goPage('trade')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 4h12M1 8h12M4 1v12M10 1v12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        매입매출전표 입력
+      </button>
+      <div class="nav-sec">조회 / 분석</div>
+      <button class="nav-btn" id="nav-list" onclick="goPage('list')">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 5.5h6M4 8.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        전표 조회
-        <span class="nb" id="pb" style="display:none">!</span>
+        전표 조회 <span class="nb" id="pb" style="display:none">!</span>
       </button>
-      <button class="nav-item" id="nav-channel" onclick="goPage('channel')">
+      <button class="nav-btn" id="nav-channel" onclick="goPage('channel')">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 1.5V7l3.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         채널별 분석
       </button>
-      <button class="nav-item" id="nav-summary" onclick="goPage('summary')">
+      <button class="nav-btn" id="nav-summary" onclick="goPage('summary')">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 12V6l3-3 4 4 4-4v10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         기간별 요약
       </button>
@@ -235,12 +219,16 @@ tr:last-child td{border-bottom:none}
       </button>
     </div>
   </nav>
+
   <div class="main">
     <div class="topbar">
-      <div><div class="topbar-t" id="pg-title">전표 직접 입력</div><div class="topbar-s" id="pg-sub">일반전표 · 매입매출전표 직접 입력</div></div>
+      <div>
+        <div class="topbar-t" id="pg-title">엑셀 업로드</div>
+        <div class="topbar-s" id="pg-sub">카드사 내역 파일을 업로드하세요</div>
+      </div>
       <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="exportExcel()" id="excel-btn" style="display:none">엑셀 다운로드</button>
         <button class="btn btn-sm" onclick="exportCSV()">CSV 내보내기</button>
-        <button class="btn btn-sm" style="color:var(--text3)" onclick="lockSite()">로그아웃</button>
       </div>
     </div>
     <div class="content" id="content"><div class="loading"><div class="spin"></div>로딩 중...</div></div>
@@ -248,7 +236,19 @@ tr:last-child td{border-bottom:none}
 </div>
 </div>
 
-<!-- 전표 상세 모달 -->
+<!-- 전표 저장 확인 모달 -->
+<div class="ov" id="confirm-ov" style="display:none" onclick="if(event.target===this)closeConfirm()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mh-t" id="confirm-title">전표 미리보기</div><button class="mc" onclick="closeConfirm()">×</button></div>
+    <div class="mb" id="confirm-body"></div>
+    <div class="mf">
+      <button class="btn" onclick="closeConfirm()">취소</button>
+      <button class="btn btn-p" id="confirm-save-btn" onclick="doSaveEntry()">전표 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 전표 상세/수정 모달 -->
 <div class="ov" id="dov" style="display:none" onclick="if(event.target===this)closeDetail()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="mh">
@@ -266,10 +266,10 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<!-- 경영지원팀 비밀번호 모달 -->
+<!-- 경영지원팀 비번 모달 -->
 <div class="ov" id="pwov" style="display:none" onclick="if(event.target===this)closePw()">
   <div class="modal modal-sm" onclick="event.stopPropagation()">
-    <div class="mh"><div class="mh-t">경영지원팀 인증</div><button class="mc" onclick="closePw()">×</button></div>
+    <div class="mh"><div class="mh-t">경영지원팀 로그인</div><button class="mc" onclick="closePw()">×</button></div>
     <div class="mb">
       <div class="fg"><label class="fl">비밀번호</label>
         <input type="password" id="pw-inp" placeholder="경영지원팀 비밀번호" onkeydown="if(event.key==='Enter')submitPw()">
@@ -278,6 +278,15 @@ tr:last-child td{border-bottom:none}
       <div style="font-size:11px;color:var(--text3);background:var(--bg2);padding:8px 10px;border-radius:var(--r)">초기 비밀번호: <strong>mgmt2026</strong></div>
     </div>
     <div class="mf"><button class="btn" onclick="closePw()">취소</button><button class="btn btn-p" onclick="submitPw()">확인</button></div>
+  </div>
+</div>
+
+<!-- 채널 관리 모달 (경영지원팀) -->
+<div class="ov" id="ch-ov" style="display:none" onclick="if(event.target===this)closeChMgmt()">
+  <div class="modal modal-sm" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mh-t">채널 관리</div><button class="mc" onclick="closeChMgmt()">×</button></div>
+    <div class="mb" id="ch-body"></div>
+    <div class="mf"><button class="btn" onclick="closeChMgmt()">닫기</button></div>
   </div>
 </div>
 
@@ -293,416 +302,251 @@ tr:last-child td{border-bottom:none}
 <div class="toast" id="toast"></div>
 
 <script>
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // 설정
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 const SITE_PW = 'kpopmerch';
 const MGMT_PW = 'mgmt2026';
 const SB_URL  = 'https://asinmebtvygtfhrfmcdc.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzaW5tZWJ0dnlndGZocmZtY2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzOTgwOTAsImV4cCI6MjA5MTk3NDA5MH0.QunULP_QDTpm2KSh05XqKPt0zAtbGy1-MWcEJ5ciZzw';
 const BUCKET  = 'voucher-files';
+const sb      = supabase.createClient(SB_URL, SB_KEY);
 
-const CH = ['ALI','아마존','중','라자다','라쿠텐','쇼피','큐텐','월마트','네이버','쿠팡','카페24','쇼피파이(J)','쇼피파이(G)','엘지유플러스','광업','일반도매','공통'];
-const TEAMS = ['쇼피팀','라자다팀','도매팀','경영지원','물류팀'];
-const ACCTS = ['지급수수료','여비교통비','접대비','복리후생비','소모품비','운반비','광고선전비','차량유지비','통신비','보험료','도서인쇄비','포장비','건물관리비','지급임차료','판매수수료','인적용역비','상품','선급금','미지급금','미지급비용','보통예금','현금','부가세대급금','기타'];
-const CH_COLOR = {'ALI':'#AD1457','아마존':'#2E7D32','중':'#E65100','라자다':'#1565C0','라쿠텐':'#6A1B9A','쇼피':'#BF360C','큐텐':'#00838F','월마트':'#1A237E','네이버':'#388E3C','쿠팡':'#D84315','카페24':'#6A1B9A','쇼피파이(J)':'#00695C','쇼피파이(G)':'#C62828','엘지유플러스':'#283593','광업':'#4E342E','일반도매':'#558B2F','공통':'#757575'};
+const TM = ['쇼피팀','라자다팀','도매팀','경영지원','물류팀'];
+const CLC = {'ALI':'#AD1457','아마존':'#2E7D32','중':'#E65100','라자다':'#1565C0','라쿠텐':'#6A1B9A','쇼피':'#BF360C','큐텐':'#00838F','월마트':'#1A237E','네이버':'#388E3C','쿠팡':'#D84315','카페24':'#6A1B9A','쇼피파이(J)':'#00695C','쇼피파이(G)':'#C62828','엘지유플러스':'#283593','팝업':'#AD1457','일반도매':'#558B2F','공통':'#757575'};
+
+// 계정과목 목록
+const ACCTS = ['811 복리후생비','812 여비교통비','813 접대비','814 통신비','821 보험료','822 차량유지비','824 운반비','826 도서인쇄비','828 포장비','830 소모품비','831 지급수수료','833 광고선전비','834 판매수수료','835 건물관리비','836 전력비','상품','212 비품','131 선급금','미지급금','미지급비용','보통예금','현금','선수금','부가세대급금','부가세예수금','외상매입금','선급비용'];
+
 const PM = {
-  entry:   {t:'전표 직접 입력', s:'일반전표 / 매입매출전표 직접 등록'},
-  upload:  {t:'파일 업로드',    s:'엑셀 양식으로 전표를 일괄 업로드'},
-  list:    {t:'전표 조회',      s:'전체 전표 내역 조회 및 수정'},
-  channel: {t:'채널별 분석',    s:'채널별 판관비 집계'},
-  summary: {t:'기간별 요약',    s:'업로드 기간별 비용 요약'},
+  upload:  {t:'엑셀 업로드',      s:'카드사 내역 파일을 업로드하세요'},
+  general: {t:'일반전표 입력',     s:'차변/대변 자유 입력'},
+  trade:   {t:'매입매출전표 입력', s:'세금계산서·인보이스 등 증빙 기반 입력'},
+  list:    {t:'전표 조회',         s:'행 클릭 → 상세 / 수정. 엑셀 다운로드 가능'},
+  channel: {t:'채널별 분석',       s:'채널별 판관비 집계'},
+  summary: {t:'기간별 요약',       s:'기간별 팀별 비용 요약'},
 };
 
 let G = {
-  page:'entry', mgmt:false, vs:[], hist:[], pend:[],
-  cur:null, edit:false, uf:'2026-01-01', ut:'2026-01-31',
-  // 전표 직접 입력 상태
-  entryType:'일반전표',
-  entries:[
-    {no:1,구분:'차변',계정과목:'',거래처:'',적요:'',공급가액:0,부가세:0,합계:0},
-    {no:2,구분:'대변',계정과목:'',거래처:'',적요:'',공급가액:0,부가세:0,합계:0},
-  ],
+  page:'upload', mgmt:false,
+  vs:[], hist:[], pend:[],
+  cur:null, edit:false,
+  uf:'2026-01-01', ut:'2026-01-31',
+  channels:[],        // DB에서 로드한 채널 목록
+  eRows:[],           // 분개 행
+  ePending:null,      // 저장 대기 중인 전표
+  entryPage:'general',
 };
 
-// ── Supabase 동적 로드 ──────────────────────
-let sb = null;
-function loadSupabase(cb){
-  if(sb){cb&&cb();return;}
-  const s1=document.createElement('script');
-  s1.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
-  s1.onload=()=>{
-    sb=supabase.createClient(SB_URL,SB_KEY);
-    cb&&cb();
-  };
-  s1.onerror=()=>{
-    // CDN 실패 시 로컬 스토리지 폴백
-    sb=makeFallbackSb();
-    cb&&cb();
-  };
-  document.head.appendChild(s1);
-}
+// ── 유틸 ──
+const fmt = n => Math.round(Number(n||0)).toLocaleString('ko-KR');
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const cl  = v => (['nan','NaN','undefined','null',''].includes(String(v||'').trim()))?'':String(v).trim();
+const pn  = v => { try{ return parseFloat(String(v||0).replace(/[,\s원$]/g,''))||0; }catch{ return 0; }};
+function fd(v){ if(!v)return''; if(v instanceof Date)return v.toISOString().slice(0,10); const s=String(v); return s.includes('T')?s.slice(0,10):s.match(/^\d{4}-\d{2}-\d{2}/)?s.slice(0,10):s; }
+function chB(ch){ if(!ch)return'<span class="badge b-none">미부여</span>'; return`<span class="badge" style="background:${(CLC[ch]||'#888')}22;color:${CLC[ch]||'#555'}">${ch}</span>`; }
+function fe(n){ const e=(n||'').split('.').pop().toLowerCase(); return e==='pdf'?'fic-pdf':['jpg','jpeg','png','gif','webp'].includes(e)?'fic-img':'fic-etc'; }
+function fs(b){ return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB'; }
+function toast(m,t='info'){ const e=document.getElementById('toast'); e.textContent=m; e.className=`toast show t-${t}`; clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),3000); }
 
-// 로컬스토리지 폴백 (Supabase 로드 실패 시)
-function makeFallbackSb(){
-  const store=()=>JSON.parse(localStorage.getItem('vs_data')||'{"vouchers":[],"history":[]}');
-  const save=d=>localStorage.setItem('vs_data',JSON.stringify(d));
-  return {
-    from:(t)=>({
-      select:()=>({
-        order:()=>({
-          data: t==='vouchers'?store().vouchers:store().history,
-          error:null,
-          limit:()=>({data:store().history.slice(0,20),error:null}),
-        }),
-        eq:(k,v)=>({order:()=>({data:[],error:null}),single:()=>({data:null,error:null})}),
-      }),
-      upsert:(rows)=>{const d=store();d.vouchers=[...d.vouchers,...rows];save(d);return{error:null};},
-      update:(row)=>({eq:(k,v)=>{const d=store();const i=d.vouchers.findIndex(x=>x[k]===v);if(i>=0)d.vouchers[i]={...d.vouchers[i],...row};save(d);return{error:null};}}),
-      insert:(row)=>{const d=store();if(Array.isArray(row))d.history=[row[0],...d.history];else d.vouchers.push(row);save(d);return{error:null};},
-      delete:()=>({eq:()=>({error:null})}),
-    }),
-    storage:{from:()=>({
-      upload:async()=>({error:null}),
-      download:async()=>({data:new Blob(),error:null}),
-      remove:async()=>({error:null}),
-    })},
-  };
-}
-
-// ── 유틸 ────────────────────────────────────
-const fmt = n=>Math.round(Number(n||0)).toLocaleString('ko-KR');
-const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const cl  = v=>(['nan','NaN','undefined','null',''].includes(String(v||'').trim()))?'':String(v).trim();
-const pn  = v=>{try{return parseFloat(String(v||0).replace(/[,\s원$]/g,''))||0}catch{return 0}};
-function fd(v){if(!v)return'';if(v instanceof Date)return v.toISOString().slice(0,10);const s=String(v);return s.includes('T')?s.slice(0,10):s.match(/^\d{4}-\d{2}-\d{2}/)?s.slice(0,10):s}
-function chB(ch){if(!ch)return'<span class="badge b-none">미부여</span>';const k=ch.replace(/[()]/g,'');return`<span class="badge b-${k}">${ch}</span>`}
-function toast(m,t='info'){const e=document.getElementById('toast');e.textContent=m;e.className=`toast show t-${t}`;clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2800)}
-
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // 사이트 잠금
-// ══════════════════════════════════════════════
-function tryUnlock(){
-  const pw=document.getElementById('lock-pw').value;
+// ═══════════════════════════════════════════════════════
+function checkSitePw(){
+  const pw=document.getElementById('site-pw').value;
   if(pw===SITE_PW){
-    document.getElementById('lock-screen').style.display='none';
+    document.getElementById('site-lock').style.display='none';
     document.getElementById('app').style.display='block';
-    loadSupabase(()=>{renderPage();});
+    init();
   } else {
-    document.getElementById('lock-err').style.display='block';
-    document.getElementById('lock-pw').value='';
-    document.getElementById('lock-pw').focus();
-    setTimeout(()=>document.getElementById('lock-err').style.display='none',2000);
+    document.getElementById('site-pw-err').style.display='block';
+    document.getElementById('site-pw').value='';
+    document.getElementById('site-pw').focus();
   }
 }
-function lockSite(){
-  document.getElementById('lock-screen').style.display='flex';
-  document.getElementById('app').style.display='none';
-  document.getElementById('lock-pw').value='';
-}
-document.getElementById('lock-pw').focus();
+document.getElementById('site-pw').addEventListener('keydown',e=>{ if(e.key==='Enter')checkSitePw(); });
+document.getElementById('site-pw').focus();
 
-// ══════════════════════════════════════════════
-// 네비게이션
-// ══════════════════════════════════════════════
-function goPage(p){
-  G.page=p;
-  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
-  document.getElementById('nav-'+p)?.classList.add('active');
-  document.getElementById('pg-title').textContent=PM[p].t;
-  document.getElementById('pg-sub').textContent=PM[p].s;
+// ═══════════════════════════════════════════════════════
+// 초기화
+// ═══════════════════════════════════════════════════════
+async function init(){
+  await loadChannels();
   renderPage();
 }
+
+async function loadChannels(){
+  try{
+    const{data,error}=await sb.from('channel_list').select('channel_name').order('id');
+    if(!error && data && data.length>0){
+      G.channels = data.map(r=>r.channel_name);
+    } else {
+      G.channels = ['ALI','아마존','중','라자다','라쿠텐','쇼피','큐텐','월마트','네이버','쿠팡','카페24','쇼피파이(J)','쇼피파이(G)','엘지유플러스','팝업','일반도매','공통'];
+    }
+  }catch{
+    G.channels = ['ALI','아마존','중','라자다','라쿠텐','쇼피','큐텐','월마트','네이버','쿠팡','카페24','쇼피파이(J)','쇼피파이(G)','엘지유플러스','팝업','일반도매','공통'];
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 네비게이션
+// ═══════════════════════════════════════════════════════
+function goPage(p){
+  G.page=p;
+  document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('on'));
+  document.getElementById('nav-'+p)?.classList.add('on');
+  document.getElementById('pg-title').textContent=PM[p].t;
+  document.getElementById('pg-sub').textContent=PM[p].s;
+  const excelBtn=document.getElementById('excel-btn');
+  if(excelBtn) excelBtn.style.display=p==='list'?'inline-flex':'none';
+  renderPage();
+}
+
 function renderPage(){
   const el=document.getElementById('content');
   el.innerHTML='<div class="loading"><div class="spin"></div>로딩 중...</div>';
-  if(G.page==='entry')renderEntry();
-  else if(G.page==='upload')renderUpload();
-  else if(G.page==='list')loadVS().then(renderList);
-  else if(G.page==='channel')loadVS().then(renderChannel);
-  else if(G.page==='summary')loadVS().then(renderSummary);
+  if(G.page==='upload')  renderUpload();
+  else if(G.page==='general') renderEntryForm('general');
+  else if(G.page==='trade')   renderEntryForm('trade');
+  else if(G.page==='list')    renderList();
+  else if(G.page==='channel') renderChannel();
+  else if(G.page==='summary') renderSummary();
 }
 
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // 경영지원팀 인증
-// ══════════════════════════════════════════════
-function handleMgmtClick(){if(G.mgmt){lockMgmt();return}document.getElementById('pwov').style.display='flex';setTimeout(()=>document.getElementById('pw-inp')?.focus(),60)}
-function closePw(){document.getElementById('pwov').style.display='none'}
+// ═══════════════════════════════════════════════════════
+function handleMgmtClick(){ if(G.mgmt){lockMgmt();return;} document.getElementById('pwov').style.display='flex'; setTimeout(()=>document.getElementById('pw-inp')?.focus(),60); }
+function closePw(){ document.getElementById('pwov').style.display='none'; }
 function submitPw(){
   const pw=document.getElementById('pw-inp')?.value||'';
-  if(pw===MGMT_PW){G.mgmt=true;closePw();document.getElementById('pw-inp').value='';document.getElementById('pw-err').style.display='none';document.getElementById('mgmt-btn').className='mgmt-btn on';document.getElementById('mgmt-txt').textContent='경영지원팀 (활성)';toast('경영지원팀 모드 활성화','success');renderPage()}
-  else{document.getElementById('pw-err').style.display='block';document.getElementById('pw-inp').value='';document.getElementById('pw-inp').focus()}
+  if(pw===MGMT_PW){
+    G.mgmt=true; closePw(); document.getElementById('pw-inp').value='';
+    document.getElementById('pw-err').style.display='none';
+    document.getElementById('mgmt-btn').className='mgmt-btn on';
+    document.getElementById('mgmt-txt').textContent='경영지원팀 (활성)';
+    toast('경영지원팀 모드 활성화','success'); renderPage();
+  } else {
+    document.getElementById('pw-err').style.display='block';
+    document.getElementById('pw-inp').value=''; document.getElementById('pw-inp').focus();
+  }
 }
-function lockMgmt(){G.mgmt=false;document.getElementById('mgmt-btn').className='mgmt-btn';document.getElementById('mgmt-txt').textContent='경영지원팀 로그인';toast('잠금됐습니다.','info');renderPage()}
+function lockMgmt(){ G.mgmt=false; document.getElementById('mgmt-btn').className='mgmt-btn'; document.getElementById('mgmt-txt').textContent='경영지원팀 로그인'; toast('잠금됐습니다.','info'); renderPage(); }
 
-// ══════════════════════════════════════════════
-// 전표 직접 입력 탭
-// ══════════════════════════════════════════════
-function renderEntry(){
-  const today=new Date().toISOString().slice(0,10);
-  const vno='VCH-'+Date.now().toString(36).toUpperCase().slice(-6);
-  document.getElementById('content').innerHTML=`
-  <div class="inner-tabs">
-    <button class="inner-tab ${G.entryType==='일반전표'?'active':''}" onclick="G.entryType='일반전표';renderEntry()">일반전표</button>
-    <button class="inner-tab ${G.entryType==='매입매출전표'?'active':''}" onclick="G.entryType='매입매출전표';renderEntry()">매입매출전표</button>
-  </div>
-
-  <div class="voucher-form">
-    <div class="vf-header">
-      <div class="vf-title">${G.entryType==='일반전표'?'📋 일반전표 입력':'🧾 매입매출전표 입력'}</div>
-      <div class="vf-no" id="vf-no">${vno}</div>
-    </div>
-
-    <!-- 헤더 정보 -->
-    <div class="section-divider">기본 정보</div>
-    <div class="g4" style="margin-bottom:14px">
-      <div class="fg"><label class="fl">전표일자 *</label><input type="date" id="ef-date" value="${today}"></div>
-      <div class="fg"><label class="fl">전표 유형</label><input value="${G.entryType}" readonly></div>
-      <div class="fg"><label class="fl">담당자</label><input id="ef-handler" placeholder="홍길동"></div>
-      <div class="fg"><label class="fl">소속 팀</label>
-        <select id="ef-team"><option value="">-- 선택 --</option>${TEAMS.map(t=>`<option>${t}</option>`).join('')}</select></div>
-    </div>
-    <div class="g4" style="margin-bottom:14px">
-      <div class="fg"><label class="fl">거래처명 *</label><input id="ef-partner" placeholder="(주)광교우미뉴브 관리단"></div>
-      <div class="fg"><label class="fl">사업자번호</label><input id="ef-bizno" placeholder="605-82-88845"></div>
-      ${G.entryType==='매입매출전표'?`
-      <div class="fg"><label class="fl">과세 유형</label>
-        <select id="ef-taxtype"><option>과세</option><option>면세</option><option>영세</option><option>불공제</option></select></div>
-      <div class="fg"><label class="fl">적격증빙</label>
-        <select id="ef-evid"><option>세금계산서</option><option>계산서</option><option>인보이스</option><option>영수증</option><option>카드매출전표</option><option>기타</option></select></div>
-      `:`<div class="fg"><label class="fl">채널 귀속</label>
-        <select id="ef-channel" ${!G.mgmt?'disabled':''}>
-          <option value="">-- 선택 --</option>${CH.map(c=>`<option>${c}</option>`).join('')}
-        </select>${!G.mgmt?'<div style="font-size:11px;color:var(--text3);margin-top:3px">경영지원팀만 입력 가능</div>':''}</div>
-      <div class="fg"><label class="fl">적격증빙</label>
-        <select id="ef-evid"><option>세금계산서</option><option>계산서</option><option>카드매출전표</option><option>영수증</option><option>기타</option></select></div>`}
-    </div>
-
-    <!-- 분개 입력 -->
-    <div class="section-divider">분개 입력</div>
-    <div class="jentry-header">
-      <span>구분</span><span>계정과목 *</span><span>거래처/적요 *</span>
-      <span>공급가액</span><span>부가세</span><span>합계금액</span><span></span>
-    </div>
-    <div id="jentry-rows">${buildEntryRows()}</div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-sm" onclick="addEntryRow('차변')">+ 차변 추가</button>
-      <button class="btn btn-sm" onclick="addEntryRow('대변')">+ 대변 추가</button>
-    </div>
-
-    <!-- 합계 -->
-    <div class="total-row">
-      <div class="total-item">차변 합계: <strong id="total-dr">0</strong>원</div>
-      <div class="total-item">대변 합계: <strong id="total-cr">0</strong>원</div>
-      <div class="total-item" id="balance-status"></div>
-    </div>
-
-    <!-- 적요 -->
-    <div style="margin-top:12px" class="fg">
-      <label class="fl">전표 적요</label>
-      <input id="ef-memo" placeholder="예: S306호 2월 관리비 / 출장비 정산 등">
-    </div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:0.5px solid var(--bd)">
-      <button class="btn" onclick="clearEntryForm()">초기화</button>
-      <button class="btn btn-green" onclick="previewEntry()">미리보기</button>
-      <button class="btn btn-p" onclick="saveEntry()">전표 저장</button>
-    </div>
-  </div>
-
-  <!-- 오늘 입력된 전표 목록 -->
-  <div class="card">
-    <div class="card-t">최근 직접 입력 전표</div>
-    <div id="recent-manual">${buildRecentManual()}</div>
-  </div>`;
-
-  updateTotals();
+// ═══════════════════════════════════════════════════════
+// 데이터 로드
+// ═══════════════════════════════════════════════════════
+async function loadVS(){
+  try{
+    const{data,error}=await sb.from('vouchers').select('*').order('created_at',{ascending:false});
+    if(error)throw error; G.vs=data||[];
+    const p=G.vs.filter(r=>!r.채널).length;
+    const b=document.getElementById('pb'); if(b)b.style.display=p>0?'inline':'none';
+  }catch(e){ toast('로드 실패: '+e.message,'error'); G.vs=[]; }
+}
+async function loadHist(){
+  try{ const{data}=await sb.from('upload_history').select('*').order('created_at',{ascending:false}).limit(20); G.hist=data||[]; }catch{}
 }
 
-function buildEntryRows(){
-  return G.entries.map((e,i)=>`
-    <div class="jentry-row" id="er-${i}">
-      <select onchange="G.entries[${i}].구분=this.value;updateTotals()" style="font-size:12px;padding:5px 6px">
-        <option ${e.구분==='차변'?'selected':''}>차변</option>
-        <option ${e.구분==='대변'?'selected':''}>대변</option>
-      </select>
-      <select onchange="G.entries[${i}].계정과목=this.value" style="font-size:12px;padding:5px 6px">
-        <option value="">-- 계정과목 --</option>${ACCTS.map(a=>`<option ${e.계정과목===a?'selected':''}>${a}</option>`).join('')}
-      </select>
-      <input value="${e.적요}" placeholder="거래처/적요" onchange="G.entries[${i}].적요=this.value" style="font-size:12px;padding:5px 7px">
-      <input type="number" value="${e.공급가액||''}" placeholder="0" onchange="G.entries[${i}].공급가액=pn(this.value);calcRow(${i})" style="font-size:12px;padding:5px 7px;text-align:right">
-      <input type="number" value="${e.부가세||''}" placeholder="0" onchange="G.entries[${i}].부가세=pn(this.value);calcRow(${i})" style="font-size:12px;padding:5px 7px;text-align:right">
-      <input value="${e.합계?fmt(e.합계):''}" readonly placeholder="자동계산" style="font-size:12px;padding:5px 7px;text-align:right;background:var(--bg3)">
-      <button onclick="removeEntryRow(${i})" class="btn btn-sm btn-danger" style="padding:4px 8px">✕</button>
-    </div>`).join('');
-}
-
-function calcRow(i){
-  const e=G.entries[i];
-  e.합계=e.공급가액+e.부가세;
-  updateTotals();
-  const rows=document.getElementById('jentry-rows');
-  if(rows)rows.innerHTML=buildEntryRows();
-}
-
-function addEntryRow(구분){
-  G.entries.push({no:G.entries.length+1,구분,계정과목:'',거래처:'',적요:'',공급가액:0,부가세:0,합계:0});
-  const rows=document.getElementById('jentry-rows');
-  if(rows)rows.innerHTML=buildEntryRows();
-  updateTotals();
-}
-
-function removeEntryRow(i){
-  if(G.entries.length<=2){toast('최소 2개 행이 필요합니다.','error');return}
-  G.entries.splice(i,1);
-  const rows=document.getElementById('jentry-rows');
-  if(rows)rows.innerHTML=buildEntryRows();
-  updateTotals();
-}
-
-function updateTotals(){
-  const dr=G.entries.filter(e=>e.구분==='차변').reduce((s,e)=>s+e.합계,0);
-  const cr=G.entries.filter(e=>e.구분==='대변').reduce((s,e)=>s+e.합계,0);
-  const tdEl=document.getElementById('total-dr');
-  const tcEl=document.getElementById('total-cr');
-  const bsEl=document.getElementById('balance-status');
-  if(tdEl)tdEl.textContent=fmt(dr);
-  if(tcEl)tcEl.textContent=fmt(cr);
-  if(bsEl){
-    if(dr===0&&cr===0){bsEl.innerHTML=''}
-    else if(dr===cr){bsEl.innerHTML='<span class="balance-ok" style="font-weight:600">✓ 대차 일치</span>'}
-    else{bsEl.innerHTML=`<span class="balance-err" style="font-weight:600">⚠ 차액: ${fmt(Math.abs(dr-cr))}원</span>`}
+// ═══════════════════════════════════════════════════════
+// 전표번호 채번
+// ═══════════════════════════════════════════════════════
+async function getNextVoucherNo(date, type){
+  // type: 'general' (00001~) or 'trade' (50001~)
+  const startSeq = type==='general' ? 1 : 50001;
+  const prefix   = type==='general' ? '' : '';
+  try{
+    // upsert로 카운터 증가
+    const{data,error}=await sb.rpc ? null : null; // RPC 없으면 직접 처리
+    // 직접 카운터 조회/업데이트
+    const{data:cnt,error:e1}=await sb.from('voucher_counter').select('last_seq').eq('vdate',date).eq('vtype',type).single();
+    let seq;
+    if(e1 || !cnt){
+      // 첫 번째 전표
+      seq = startSeq;
+      await sb.from('voucher_counter').insert({vdate:date,vtype:type,last_seq:seq});
+    } else {
+      seq = cnt.last_seq + 1;
+      await sb.from('voucher_counter').update({last_seq:seq}).eq('vdate',date).eq('vtype',type);
+    }
+    const seqStr = String(seq).padStart(5,'0');
+    return `${date}-${seqStr}`;
+  }catch(e){
+    // 폴백: 랜덤 번호
+    const startStr = type==='general'?'0':'5';
+    return `${date}-${startStr}${String(Math.floor(Math.random()*9999)).padStart(4,'0')}`;
   }
 }
 
-function clearEntryForm(){
-  G.entries=[
-    {no:1,구분:'차변',계정과목:'',거래처:'',적요:'',공급가액:0,부가세:0,합계:0},
-    {no:2,구분:'대변',계정과목:'',거래처:'',적요:'',공급가액:0,부가세:0,합계:0},
-  ];
-  renderEntry();
+// ═══════════════════════════════════════════════════════
+// 자동완성 헬퍼
+// ═══════════════════════════════════════════════════════
+function makeAcInput(id, list, placeholder, onSelect){
+  return `<div class="ac-wrap">
+    <input type="text" id="${id}" placeholder="${placeholder}" autocomplete="off"
+      oninput="showAc('${id}',${JSON.stringify(list).replace(/"/g,"'")})"
+      onblur="setTimeout(()=>hideAc('${id}'),200)"
+      onkeydown="acKeydown(event,'${id}')">
+    <div class="ac-list" id="ac-${id}"></div>
+  </div>`;
+}
+function showAc(id, list){
+  const inp=document.getElementById(id);
+  const ac=document.getElementById('ac-'+id);
+  if(!inp||!ac)return;
+  const q=inp.value.toLowerCase();
+  const matches=list.filter(x=>x.toLowerCase().includes(q)).slice(0,10);
+  if(!matches.length||!q){ac.style.display='none';return;}
+  ac.innerHTML=matches.map(m=>`<div class="ac-item" onmousedown="selectAc('${id}','${m.replace(/'/g,"\\'")}')">
+    <span style="font-weight:500">${m.slice(0,m.toLowerCase().indexOf(q))}<span style="color:var(--blue)">${m.slice(m.toLowerCase().indexOf(q),m.toLowerCase().indexOf(q)+q.length)}</span>${m.slice(m.toLowerCase().indexOf(q)+q.length)}</span>
+  </div>`).join('');
+  ac.style.display='block';
+}
+function hideAc(id){ const ac=document.getElementById('ac-'+id); if(ac)ac.style.display='none'; }
+function selectAc(id, val){
+  const inp=document.getElementById(id); if(inp)inp.value=val;
+  hideAc(id);
+  // 분개 행 자동채움 트리거
+  if(id==='e-memo') fillMemoToRows();
+}
+function acKeydown(e,id){
+  const ac=document.getElementById('ac-'+id); if(!ac||ac.style.display==='none')return;
+  const items=ac.querySelectorAll('.ac-item');
+  const sel=ac.querySelector('.selected');
+  if(e.key==='ArrowDown'){const next=sel?sel.nextSibling:items[0];if(sel)sel.classList.remove('selected');if(next)next.classList.add('selected');e.preventDefault();}
+  else if(e.key==='ArrowUp'){const prev=sel?sel.previousSibling:items[items.length-1];if(sel)sel.classList.remove('selected');if(prev)prev.classList.add('selected');e.preventDefault();}
+  else if(e.key==='Enter'){if(sel){const inp=document.getElementById(id);if(inp)inp.value=sel.textContent.trim();hideAc(id);if(id==='e-memo')fillMemoToRows();}}
+  else if(e.key==='Escape')hideAc(id);
 }
 
-function previewEntry(){
-  const dr=G.entries.filter(e=>e.구분==='차변').reduce((s,e)=>s+e.합계,0);
-  const cr=G.entries.filter(e=>e.구분==='대변').reduce((s,e)=>s+e.합계,0);
-  if(dr!==cr){toast('대차가 일치하지 않습니다. 차변='+fmt(dr)+', 대변='+fmt(cr),'error');return}
-  const partner=document.getElementById('ef-partner')?.value||'';
-  const date=document.getElementById('ef-date')?.value||'';
-  const memo=document.getElementById('ef-memo')?.value||'';
-  openModal('전표 미리보기',`
-    <div class="ds"><div class="ds-t">기본 정보</div>
-      <div class="g2" style="gap:10px">
-        <div><label class="fl">전표일자</label><input value="${date}" readonly></div>
-        <div><label class="fl">거래처</label><input value="${partner}" readonly></div>
-        <div><label class="fl">담당자</label><input value="${document.getElementById('ef-handler')?.value||''}" readonly></div>
-        <div><label class="fl">전표 유형</label><input value="${G.entryType}" readonly></div>
-      </div>
-    </div>
-    <div class="ds"><div class="ds-t">분개</div>
-      <table class="jt"><thead><tr><th>구분</th><th>계정과목</th><th>적요</th><th style="text-align:right">공급가액</th><th style="text-align:right">부가세</th><th style="text-align:right">합계금액</th></tr></thead>
-      <tbody>${G.entries.filter(e=>e.합계>0||e.계정과목).map(e=>`<tr>
-        <td><span class="badge" style="${e.구분==='차변'?'background:#E3F2FD;color:#0D47A1':'background:#FFF3E0;color:#BF360C'}">${e.구분}</span></td>
-        <td>${e.계정과목}</td><td>${e.적요}</td>
-        <td style="text-align:right">${fmt(e.공급가액)}</td>
-        <td style="text-align:right">${fmt(e.부가세)}</td>
-        <td style="text-align:right;font-weight:600">${fmt(e.합계)}</td>
-      </tr>`).join('')}</tbody></table>
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:20px;padding:10px 0;border-top:0.5px solid var(--bd)">
-      <span>차변: <strong>${fmt(dr)}원</strong></span>
-      <span>대변: <strong>${fmt(cr)}원</strong></span>
-      <span style="color:var(--grn);font-weight:600">✓ 대차 일치</span>
-    </div>
-    <div class="fg"><label class="fl">적요</label><input value="${memo}" readonly></div>`,
-    `<button class="btn" onclick="closeModal()">닫기</button>
-     <button class="btn btn-p" onclick="closeModal();saveEntry()">확인 후 저장</button>`
-  );
-}
-
-async function saveEntry(){
-  const date=document.getElementById('ef-date')?.value||'';
-  const partner=document.getElementById('ef-partner')?.value||'';
-  const handler=document.getElementById('ef-handler')?.value||'';
-  const team=document.getElementById('ef-team')?.value||'';
-  const memo=document.getElementById('ef-memo')?.value||'';
-  const channel=document.getElementById('ef-channel')?.value||'';
-  const evid=document.getElementById('ef-evid')?.value||'';
-  const bizno=document.getElementById('ef-bizno')?.value||'';
-
-  if(!date||!partner){toast('전표일자와 거래처명은 필수입니다.','error');return}
-  const dr=G.entries.filter(e=>e.구분==='차변').reduce((s,e)=>s+e.합계,0);
-  const cr=G.entries.filter(e=>e.구분==='대변').reduce((s,e)=>s+e.합계,0);
-  if(dr!==cr){toast('대차가 일치하지 않습니다.','error');return}
-
-  const records=G.entries.filter(e=>e.합계>0||e.계정과목).map(e=>({
-    id:uid(),
-    전표유형:G.entryType==='일반전표'?'일반전표':'매입매출전표',
-    입력방식:'직접입력',
-    전표일자:date, 청구일자:date,
-    거래처명:partner, 사업자번호:bizno,
-    계정과목:e.계정과목, 차변대변:e.구분,
-    공급가액:e.공급가액, 부가세:e.부가세, 합계금액:e.합계,
-    적요:e.적요||memo, 담당자:handler,
-    팀명:team, 채널:channel, 업로드기간:date.slice(0,7),
-    적격증빙:evid, 전표번호:'VCH-'+uid().toUpperCase().slice(-6),
-  }));
-
-  try{
-    const {error}=await sb.from('vouchers').upsert(records);
-    if(error)throw error;
-    toast(`${records.length}건 저장됐습니다.`,'success');
-    clearEntryForm();
-  }catch(e){toast('저장 실패: '+e.message,'error')}
-}
-
-function buildRecentManual(){
-  const recent=G.vs.filter(r=>r.입력방식==='직접입력').slice(0,5);
-  if(!recent.length)return'<div style="font-size:12px;color:var(--text3)">직접 입력한 전표가 없습니다.</div>';
-  return`<div class="tw"><table><thead><tr><th>전표일자</th><th>유형</th><th>거래처</th><th>계정과목</th><th style="text-align:right">합계금액</th><th>담당자</th></tr></thead>
-  <tbody>${recent.map(r=>`<tr class="vrow" onclick="openDetail('${r.id}')">
-    <td>${r.전표일자||'-'}</td>
-    <td><span class="badge b-manual">${r.전표유형||'직접입력'}</span></td>
-    <td>${r.거래처명||'-'}</td>
-    <td style="font-size:11px;color:var(--text2)">${r.계정과목||'-'}</td>
-    <td style="text-align:right;font-weight:600">${fmt(r.합계금액)}원</td>
-    <td>${r.담당자||'-'}</td>
-  </tr>`).join('')}</tbody></table></div>`;
-}
-
-// ══════════════════════════════════════════════
-// 파일 업로드 탭
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// 엑셀 업로드 탭
+// ═══════════════════════════════════════════════════════
 async function renderUpload(){
-  await loadVSPromise();
-  await loadHist();
+  await Promise.all([loadVS(),loadHist()]);
   const tot=G.vs.reduce((s,r)=>s+Number(r.합계금액||0),0);
   const card=G.vs.filter(r=>r.전표유형==='카드전표');
-  const buy=G.vs.filter(r=>r.전표유형==='매입매출전표'||r.전표유형==='매입전표');
-  const manual=G.vs.filter(r=>r.입력방식==='직접입력');
+  const buy=G.vs.filter(r=>r.전표유형==='매입전표');
   const pend=G.vs.filter(r=>!r.채널).length;
-  const hH=G.hist.length?G.hist.map(h=>`<div class="hi"><span style="font-size:11px;color:var(--text3)">${new Date(h.created_at).toLocaleString('ko-KR')}</span><span class="badge b-card">${h.type||'업로드'}</span><span style="font-size:12px">${h.team||'-'}</span><span style="font-size:12px;color:var(--text2)">${h.period||'-'}</span><span style="font-size:12px;font-weight:600">${h.cnt}건</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3)">업로드 내역이 없습니다.</div>';
-  const prevH=G.pend.length?`<div style="font-size:12px;margin-bottom:8px">미리보기 — ${G.pend.length}건</div>
-    <div class="tw" style="margin-bottom:12px"><table><thead><tr><th>전표일자</th><th>거래처명</th><th>계정과목</th><th>합계금액</th><th>적요</th></tr></thead>
-    <tbody>${G.pend.slice(0,5).map(r=>`<tr><td>${r.전표일자}</td><td>${r.거래처명}</td><td>${r.계정과목}</td><td style="text-align:right">${fmt(r.합계금액)}원</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.적요}</td></tr>`).join('')}
-    ${G.pend.length>5?`<tr><td colspan="5" style="text-align:center;color:var(--text3)">... 외 ${G.pend.length-5}건</td></tr>`:''}</tbody></table></div>
+  const histHTML=G.hist.length?G.hist.map(h=>`<div class="hi"><span style="font-size:11px;color:var(--text3)">${new Date(h.created_at).toLocaleString('ko-KR')}</span><span class="badge ${h.type==='카드전표'?'b-card':'b-buy'}">${h.type}</span><span style="font-size:12px">${h.team}</span><span style="font-size:12px;color:var(--text2)">${h.period}</span><span style="font-size:12px;font-weight:600">${h.cnt}건</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3)">업로드 내역이 없습니다.</div>';
+  const prevH=G.pend.length?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">미리보기 — ${G.pend.length}건</div>
+    <div class="tw" style="margin-bottom:12px"><table><thead><tr><th>전표일자</th><th>거래처명</th><th>계정과목</th><th style="text-align:right">합계금액</th><th>적요</th></tr></thead>
+    <tbody>${G.pend.slice(0,5).map(r=>`<tr><td>${r.전표일자}</td><td>${r.거래처명}</td><td>${r.계정과목}</td><td style="text-align:right">${fmt(r.합계금액)}원</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.적요}</td></tr>`).join('')}${G.pend.length>5?`<tr><td colspan="5" style="text-align:center;color:var(--text3)">... 외 ${G.pend.length-5}건</td></tr>`:''}</tbody></table></div>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="G.pend=[];renderUpload()">취소</button><button class="btn btn-p" onclick="confirmUpload()">등록 (${G.pend.length}건)</button></div>`:'';
   document.getElementById('content').innerHTML=`
   <div class="mg">
     <div class="metric"><div class="ml">전체 금액</div><div class="mv">${fmt(tot)}원</div><div class="ms">${G.vs.length}건</div></div>
     <div class="metric"><div class="ml">카드전표</div><div class="mv">${fmt(card.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</div><div class="ms">${card.length}건</div></div>
-    <div class="metric"><div class="ml">매입/직접입력</div><div class="mv">${fmt((buy.length+manual.length>0)?[...buy,...manual].reduce((s,r)=>s+Number(r.합계금액||0),0):0)}원</div><div class="ms">${buy.length+manual.length}건</div></div>
-    <div class="metric"><div class="ml">채널 미부여</div><div class="mv" style="color:${pend>0?'var(--red)':'var(--grn)'}">${pend}</div><div class="ms">${pend>0?'부여 필요':'완료'}</div></div>
+    <div class="metric"><div class="ml">매입전표</div><div class="mv">${fmt(buy.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</div><div class="ms">${buy.length}건</div></div>
+    <div class="metric"><div class="ml">채널 미부여</div><div class="mv" style="color:${pend>0?'var(--red)':'var(--grn)'}">${pend}</div><div class="ms">${pend>0?'경영지원팀 필요':'완료'}</div></div>
   </div>
-  <div class="card">
-    <div class="card-t"><span class="sn">1</span>팀 정보 및 전표 유형</div>
+  <div class="card"><div class="card-t"><span class="sn">1</span>팀 정보 및 전표 유형</div>
     <div class="g2">
-      <div class="fg"><label class="fl">소속 팀</label><select id="up-team"><option value="">-- 팀 선택 --</option>${TEAMS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">소속 팀</label><select id="up-team"><option value="">-- 팀 선택 --</option>${TM.map(t=>`<option>${t}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">전표 유형</label><select id="up-type"><option value="card">카드전표</option><option value="buy">매입전표</option></select></div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-t"><span class="sn">2</span>대상 기간</div>
+  <div class="card"><div class="card-t"><span class="sn">2</span>대상 기간</div>
     <div class="dr">
       <span style="font-size:12px;font-weight:500;color:var(--text2)">시작일</span>
       <input type="date" id="uf" value="${G.uf}" onchange="G.uf=this.value" style="width:150px">
@@ -710,16 +554,14 @@ async function renderUpload(){
       <span style="font-size:12px;font-weight:500;color:var(--text2)">종료일</span>
       <input type="date" id="ut" value="${G.ut}" onchange="G.ut=this.value" style="width:150px">
     </div>
-    <div class="qb-row">
-      <span style="font-size:12px;color:var(--text2)">빠른 선택:</span>
+    <div class="qb-row"><span style="font-size:12px;color:var(--text2)">빠른 선택:</span>
       <button class="qb" onclick="setQ('jan')">1월</button><button class="qb" onclick="setQ('feb')">2월</button>
       <button class="qb" onclick="setQ('q1')">1분기</button><button class="qb" onclick="setQ('q2')">2분기</button>
       <button class="qb" onclick="setQ('last')">전월</button><button class="qb" onclick="setQ('this')">이번달</button>
     </div>
   </div>
-  <div class="card">
-    <div class="card-t"><span class="sn">3</span>양식 파일 업로드</div>
-    <div style="font-size:12px;color:var(--text2);padding:8px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:12px">파일명: <strong>[팀명]_카드전표_YYYYMMDD-YYYYMMDD.xlsx</strong></div>
+  <div class="card"><div class="card-t"><span class="sn">3</span>양식 파일 업로드</div>
+    <div style="font-size:12px;color:var(--text2);padding:8px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:12px">파일명: <strong>(팀명)_카드전표_YYYYMMDD-YYYYMMDD.xlsx</strong></div>
     <div class="uz" id="dz" onclick="document.getElementById('fi').click()"
       ondragover="event.preventDefault();this.classList.add('drag')"
       ondragleave="this.classList.remove('drag')"
@@ -731,212 +573,658 @@ async function renderUpload(){
     <div id="ufb" style="display:none;margin-top:10px;font-size:13px;color:var(--text2)"></div>
     ${prevH}
   </div>
-  <div class="card" style="background:var(--bg2)"><div class="card-t" style="margin-bottom:10px">업로드 이력</div>${hH}</div>`;
+  <div class="card" style="background:var(--bg2)"><div class="card-t" style="margin-bottom:10px">업로드 이력</div>${histHTML}</div>`;
 }
 
-// ══════════════════════════════════════════════
-// 데이터 로드
-// ══════════════════════════════════════════════
-function loadVSPromise(){
-  return new Promise(async resolve=>{
-    try{
-      const r=await sb.from('vouchers').select('*').order('created_at',{ascending:false});
-      G.vs=r.data||[];
-      const p=G.vs.filter(r=>!r.채널).length;
-      const b=document.getElementById('pb');
-      if(b)b.style.display=p>0?'inline':'none';
-    }catch(e){G.vs=[];}
-    resolve();
-  });
-}
-async function loadVS(){await loadVSPromise();}
-async function loadHist(){
-  try{const r=await sb.from('upload_history').select('*').order('created_at',{ascending:false});r.data&&(G.hist=(r.data||[]).slice(0,20))}catch{}
-}
-
-// ══════════════════════════════════════════════
-// 파일 처리
-// ══════════════════════════════════════════════
-function setQ(t){const n=new Date(),y=n.getFullYear(),m=n.getMonth();let f,e;if(t==='jan'){f=`${y}-01-01`;e=`${y}-01-31`}else if(t==='feb'){f=`${y}-02-01`;e=new Date(y,2,0).toISOString().slice(0,10)}else if(t==='q1'){f=`${y}-01-01`;e=`${y}-03-31`}else if(t==='q2'){f=`${y}-04-01`;e=`${y}-06-30`}else if(t==='last'){f=`${y}-${String(m).padStart(2,'0')}-01`;e=new Date(y,m,0).toISOString().slice(0,10)}else{f=`${y}-${String(m+1).padStart(2,'0')}-01`;e=new Date(y,m+1,0).toISOString().slice(0,10)}G.uf=f;G.ut=e;const fi=document.getElementById('uf'),ti=document.getElementById('ut');if(fi)fi.value=f;if(ti)ti.value=e}
+function setQ(t){ const n=new Date(),y=n.getFullYear(),m=n.getMonth();let f,e; if(t==='jan'){f=`${y}-01-01`;e=`${y}-01-31`;}else if(t==='feb'){f=`${y}-02-01`;e=new Date(y,2,0).toISOString().slice(0,10);}else if(t==='q1'){f=`${y}-01-01`;e=`${y}-03-31`;}else if(t==='q2'){f=`${y}-04-01`;e=`${y}-06-30`;}else if(t==='last'){f=`${y}-${String(m).padStart(2,'0')}-01`;e=new Date(y,m,0).toISOString().slice(0,10);}else{f=`${y}-${String(m+1).padStart(2,'0')}-01`;e=new Date(y,m+1,0).toISOString().slice(0,10);} G.uf=f;G.ut=e; const fi=document.getElementById('uf'),ti=document.getElementById('ut'); if(fi)fi.value=f;if(ti)ti.value=e; }
 
 function handleFile(file){
   if(!file)return;
-  if(!window.XLSX){
-    const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-    s.onload=()=>processFile(file);
-    document.head.appendChild(s);
-  } else processFile(file);
-}
-function processFile(file){
-  const fb=document.getElementById('ufb');if(fb){fb.style.display='block';fb.textContent=`읽는 중: ${file.name}`}
+  const fb=document.getElementById('ufb'); if(fb){fb.style.display='block';fb.textContent=`읽는 중: ${file.name}`;}
   const reader=new FileReader();
-  reader.onload=ev=>{
-    try{
-      const wb=XLSX.read(ev.target.result,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      const type=document.getElementById('up-type')?.value||'card';
-      const team=document.getElementById('up-team')?.value||'미지정';
-      const from=document.getElementById('uf')?.value||G.uf;
-      const to=document.getElementById('ut')?.value||G.ut;
-      const period=`${from}~${to}`;
-      const rows=data.slice(4).filter(r=>r.some(c=>c!==''&&c!=null));
-      G.pend=[];
-      if(type==='card'){rows.forEach(r=>{const amt=pn(r[9]);if(!amt)return;G.pend.push({id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:fd(r[0]),청구일자:fd(r[1]),카드사:cl(r[2]),카드번호:cl(r[3]),거래처명:cl(r[4]),사업자번호:cl(r[5]),계정과목:cl(r[6]),공급가액:pn(r[7]),부가세:pn(r[8]),합계금액:amt,전표번호:cl(r[10]),전표입력유형:cl(r[11]),적요:cl(r[12]),담당자:cl(r[13]),팀명:team,채널:'',업로드팀:team,업로드기간:period})})}
-      else{rows.forEach(r=>{const amt=pn(r[8]);if(!amt)return;G.pend.push({id:uid(),전표유형:'매입전표',입력방식:'파일업로드',전표일자:fd(r[0]),청구일자:fd(r[0]),거래처명:cl(r[1]),사업자번호:cl(r[2]),계정과목:cl(r[4]),공급가액:pn(r[6]),부가세:pn(r[7]),합계금액:amt,전표번호:cl(r[12]),전표입력유형:'매입매출전표',적요:cl(r[13]),담당자:cl(r[14]),팀명:team,채널:cl(r[17])||'',업로드팀:team,업로드기간:period,차변계정:cl(r[4]),대변계정:cl(r[5]),적격증빙:cl(r[11]),진행상황:cl(r[15])})})}
-      if(fb)fb.textContent=`✓ ${file.name} — ${G.pend.length}건 인식됨`;
-      renderUpload();
-    }catch(err){if(fb){fb.style.display='block';fb.textContent='오류: '+err.message}}
-  };
+  reader.onload=ev=>{ try{
+    const wb=XLSX.read(ev.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    const type=document.getElementById('up-type')?.value||'card';
+    const team=document.getElementById('up-team')?.value||'미지정';
+    const from=document.getElementById('uf')?.value||G.uf;
+    const to=document.getElementById('ut')?.value||G.ut;
+    const period=`${from}~${to}`;
+    const rows=data.slice(4).filter(r=>r.some(c=>c!==''&&c!=null));
+    G.pend=[];
+    if(type==='card'){ rows.forEach(r=>{ const amt=pn(r[9]);if(!amt)return; G.pend.push({id:uid(),전표유형:'카드전표',전표일자:fd(r[0]),청구일자:fd(r[1]),카드사:cl(r[2]),카드번호:cl(r[3]),거래처명:cl(r[4]),사업자번호:cl(r[5]),계정과목:cl(r[6]),공급가액:pn(r[7]),부가세:pn(r[8]),합계금액:amt,전표번호:cl(r[10]),전표입력유형:'카드전표',적요:cl(r[12]),담당자:cl(r[13]),팀명:team,채널:'',업로드팀:team,업로드기간:period}); }); }
+    else{ rows.forEach(r=>{ const amt=pn(r[8]);if(!amt)return; G.pend.push({id:uid(),전표유형:'매입전표',전표일자:fd(r[0]),청구일자:fd(r[0]),카드사:'',카드번호:'',거래처명:cl(r[1]),사업자번호:cl(r[2]),계정과목:cl(r[4]),공급가액:pn(r[6]),부가세:pn(r[7]),합계금액:amt,전표번호:cl(r[12]),전표입력유형:'매입매출전표',적요:cl(r[13]),담당자:cl(r[14]),팀명:team,채널:cl(r[17])||'',업로드팀:team,업로드기간:period,차변계정:cl(r[4]),대변계정:cl(r[5]),적격증빙:cl(r[11]),진행상황:cl(r[15])}); }); }
+    if(fb)fb.textContent=`✓ ${file.name} — ${G.pend.length}건 인식됨`;
+    renderUpload();
+  }catch(err){ if(fb){fb.style.display='block';fb.textContent='오류: '+err.message;} } };
   reader.readAsArrayBuffer(file);
 }
-
 async function confirmUpload(){
   if(!G.pend.length)return;
   const btn=document.querySelector('[onclick="confirmUpload()"]');
-  if(btn){btn.disabled=true;btn.textContent='저장 중...'}
+  if(btn){btn.disabled=true;btn.textContent='저장 중...';}
   try{
-    const{error}=await sb.from('vouchers').upsert(G.pend);if(error)throw error;
+    const{error}=await sb.from('vouchers').upsert(G.pend); if(error)throw error;
     await sb.from('upload_history').insert({team:G.pend[0]?.업로드팀||'미지정',period:G.pend[0]?.업로드기간||'',type:G.pend[0]?.전표유형||'카드전표',cnt:G.pend.length});
-    toast(`${G.pend.length}건 등록됐습니다.`,'success');G.pend=[];renderUpload();
-  }catch(e){toast('저장 실패: '+e.message,'error');if(btn){btn.disabled=false;btn.textContent=`등록 (${G.pend.length}건)`}}
+    toast(`${G.pend.length}건 등록됐습니다.`,'success'); G.pend=[]; renderUpload();
+  }catch(e){ toast('저장 실패: '+e.message,'error'); if(btn){btn.disabled=false;btn.textContent=`등록 (${G.pend.length}건)`;} }
 }
 
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// 전표 직접입력 (일반전표 / 매입매출전표)
+// ═══════════════════════════════════════════════════════
+function initEntryRows(){
+  G.eRows=[
+    {id:uid(),gubun:'차변',acct:'',partner:'',memo:'',amt:0,vat:0},
+    {id:uid(),gubun:'대변',acct:'',partner:'',memo:'',amt:0,vat:0},
+  ];
+}
+
+function renderEntryForm(type){
+  if(!G.eRows || G.eRows.length===0) initEntryRows();
+  G.entryPage=type;
+  const isTrade = type==='trade';
+  const chOpts = G.channels.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const tmOpts = TM.map(t=>`<option>${t}</option>`).join('');
+
+  document.getElementById('content').innerHTML=`
+  <div class="card">
+    <div class="card-t" style="margin-bottom:8px">
+      ${isTrade?'<span style="color:var(--blue);font-size:12px;font-weight:600">📋 매입매출전표</span>':'<span style="color:var(--grn);font-size:12px;font-weight:600">📝 일반전표</span>'}
+      <span id="vno-display" style="margin-left:auto;font-size:11px;color:var(--text3);font-family:monospace">전표번호: 저장 시 자동 부여</span>
+    </div>
+
+    <!-- 기본 정보 -->
+    <div class="es"><div class="es-t">기본 정보</div>
+    <div class="g4">
+      <div class="fg"><label class="fl">전표일자 *</label><input type="date" id="e-date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="fg"><label class="fl">전표 유형</label><input value="${isTrade?'매입매출전표':'일반전표'}" readonly></div>
+      <div class="fg"><label class="fl">담당자</label><input type="text" id="e-person" placeholder="이름 입력"></div>
+      <div class="fg"><label class="fl">소속 팀</label><select id="e-team">${tmOpts}</select></div>
+    </div></div>
+
+    ${isTrade?`
+    <!-- 거래처 / 증빙 (매입매출 전용) -->
+    <div class="es"><div class="es-t">거래처 및 증빙</div>
+    <div class="g4">
+      <div class="fg"><label class="fl">거래처명 *</label>
+        <input type="text" id="e-partner" placeholder="상호명 입력" oninput="fillPartnerToRows(this.value)"></div>
+      <div class="fg"><label class="fl">사업자번호</label><input type="text" id="e-bizno" placeholder="000-00-00000"></div>
+      <div class="fg"><label class="fl">과세 유형</label>
+        <select id="e-taxtype" onchange="applyTax()">
+          <option value="과세">과세 (10%)</option><option value="면세">면세 (0%)</option>
+          <option value="영세">영세율 (0%)</option><option value="불공제">불공제</option>
+        </select></div>
+      <div class="fg"><label class="fl">적격증빙</label>
+        <select id="e-evid">
+          <option>세금계산서</option><option>계산서</option><option>인보이스</option>
+          <option>카드영수증</option><option>카드매출전표</option><option>영수증</option><option>기타</option>
+        </select></div>
+      <div class="fg"><label class="fl">증빙번호</label><input type="text" id="e-evno" placeholder="승인번호 / 세금계산서번호"></div>
+      <div class="fg"><label class="fl">공급가액</label><input type="number" id="e-supply" placeholder="0" oninput="applyTax()"></div>
+      <div class="fg"><label class="fl">부가세 (자동계산)</label><input type="number" id="e-vat" placeholder="0" oninput="recalcEntry()"></div>
+      <div class="fg"><label class="fl">합계금액</label><input type="number" id="e-total-amt" placeholder="0" readonly style="font-weight:600"></div>
+    </div></div>`:''}
+
+    <!-- 채널 귀속 -->
+    <div class="es"><div class="es-t" style="display:flex;justify-content:space-between">
+      <span>채널 귀속</span>
+      ${G.mgmt?`<button class="btn btn-sm" onclick="openChMgmt()">채널 관리</button>`:''}
+    </div>
+    <div class="g4">
+      <div class="fg"><label class="fl">채널</label>
+        <div class="ac-wrap">
+          <input type="text" id="e-channel" placeholder="채널 선택 또는 입력" autocomplete="off"
+            oninput="showAc('e-channel',${JSON.stringify(G.channels)})"
+            onblur="setTimeout(()=>hideAc('e-channel'),200)"
+            onkeydown="acKeydown(event,'e-channel')">
+          <div class="ac-list" id="ac-e-channel">
+            ${G.channels.map(c=>`<div class="ac-item" onmousedown="selectAc('e-channel','${c}')">${c}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- EMP 입고/반출 -->
+    <div class="es"><div class="es-t">EMP 입고 / 반출 (상품 관련)</div>
+    <div class="g4">
+      <div class="fg"><label class="fl">EMP 입고일자</label>
+        <select id="e-emp-type" onchange="toggleEmpDate()" style="margin-bottom:6px">
+          <option value="none">관련 없음</option><option value="date">날짜 입력</option>
+        </select>
+        <input type="date" id="e-emp-in" style="display:none">
+      </div>
+      <div class="fg"><label class="fl">EMP 반출일자</label>
+        <select id="e-emp-out-type" onchange="toggleEmpOutDate()" style="margin-bottom:6px">
+          <option value="none">관련 없음</option><option value="date">날짜 입력</option>
+        </select>
+        <input type="date" id="e-emp-out" style="display:none">
+      </div>
+    </div></div>
+
+    <!-- 분개 입력 -->
+    <div class="es">
+      <div class="es-t" style="display:flex;justify-content:space-between;align-items:center">
+        <span>분개 입력</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="entry-balance" style="font-size:12px;font-weight:600"></span>
+          <button class="btn btn-sm" onclick="addRow('차변')" style="background:var(--bbg);color:var(--btx);border-color:var(--blue)">+ 차변 추가</button>
+          <button class="btn btn-sm" onclick="addRow('대변')" style="background:#fff8f0;color:#BF360C;border-color:#BF360C">+ 대변 추가</button>
+        </div>
+      </div>
+      <table class="jt" style="margin-top:8px">
+        <thead><tr>
+          <th style="width:65px">구분</th>
+          <th style="min-width:180px">계정과목 *</th>
+          <th style="min-width:140px">거래처</th>
+          <th style="min-width:140px">적요</th>
+          <th style="width:120px">공급가액</th>
+          <th style="width:90px">부가세</th>
+          <th style="width:120px">합계금액</th>
+          <th style="width:36px"></th>
+        </tr></thead>
+        <tbody id="jt-body">${buildEntryRows()}</tbody>
+        <tfoot><tr>
+          <td colspan="4" style="text-align:right;color:var(--text2)">합계</td>
+          <td id="jt-sum-supply" style="text-align:right;font-family:monospace">0</td>
+          <td id="jt-sum-vat" style="text-align:right;font-family:monospace">0</td>
+          <td id="jt-sum-total" style="text-align:right;font-family:monospace;font-weight:700">0</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+    </div>
+
+    <!-- 전표 적요 -->
+    <div class="es"><div class="es-t">전표 적요</div>
+      <div class="ac-wrap">
+        <textarea id="e-memo" rows="2" placeholder="전표 적요를 입력하면 분개 행에 자동 반영됩니다" oninput="fillMemoToRows()"></textarea>
+      </div>
+    </div>
+
+    <!-- 증빙파일 첨부 -->
+    <div class="es"><div class="es-t">증빙파일 첨부</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="cursor:pointer;padding:7px 14px;border:0.5px solid var(--bd2);border-radius:var(--r);font-size:12px;color:var(--text2);display:inline-flex;align-items:center;gap:6px">
+          파일 선택 (PDF, 이미지, Excel 등)
+          <input type="file" id="evid-file" multiple accept="image/*,.pdf,.xlsx,.xls,.docx" style="display:none" onchange="previewEvidFiles(this.files)">
+        </label>
+        <span style="font-size:11px;color:var(--text3)">최대 50MB · 저장 후 업로드됩니다</span>
+      </div>
+      <div id="evid-preview" style="margin-top:8px"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="initEntryRows();renderEntryForm(G.entryPage)">초기화</button>
+      <button class="btn btn-p" onclick="previewEntry()">미리보기 후 저장</button>
+    </div>
+  </div>
+
+  <!-- 최근 직접입력 내역 -->
+  <div id="recent-entry-block"></div>`;
+
+  // 최근 내역 비동기 로드
+  loadVS().then(()=>{
+    const block=document.getElementById('recent-entry-block');
+    if(!block)return;
+    const recents=G.vs.filter(r=>r.전표유형==='직접입력').slice(0,5);
+    block.innerHTML=`<div class="card" style="background:var(--bg2)"><div class="card-t" style="margin-bottom:10px">최근 직접입력 전표</div>
+    ${recents.length?`<div class="tw"><table><thead><tr><th>전표번호</th><th>전표일자</th><th>거래처명</th><th>계정과목</th><th style="text-align:right">합계금액</th><th>채널</th><th>담당자</th></tr></thead>
+    <tbody>${recents.map(r=>`<tr class="vrow" onclick="openDetail('${r.id}')"><td style="font-family:monospace;font-size:11px">${r.전표번호||'-'}</td><td>${r.전표일자||'-'}</td><td>${r.거래처명||'-'}</td><td>${r.계정과목||'-'}</td><td style="text-align:right">${fmt(r.합계금액)}원</td><td>${chB(r.채널)}</td><td>${r.담당자||'-'}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div style="font-size:12px;color:var(--text3)">직접 입력한 전표가 없습니다.</div>'}
+    </div>`;
+  });
+
+  recalcEntry();
+}
+
+function buildEntryRows(){
+  return G.eRows.map(row=>`
+    <tr class="${row.gubun==='차변'?'jt-d':'jt-c'}" id="erow-${row.id}">
+      <td><select onchange="updateRow('${row.id}','gubun',this.value)">
+        <option ${row.gubun==='차변'?'selected':''}>차변</option>
+        <option ${row.gubun==='대변'?'selected':''}>대변</option>
+      </select></td>
+      <td>
+        <div class="ac-wrap">
+          <input type="text" id="acct-${row.id}" value="${row.acct||''}" placeholder="계정과목 입력" style="width:100%"
+            autocomplete="off"
+            oninput="updateRow('${row.id}','acct',this.value);showAc('acct-${row.id}',${JSON.stringify(ACCTS)})"
+            onblur="setTimeout(()=>hideAc('acct-${row.id}'),200)"
+            onkeydown="acKeydown(event,'acct-${row.id}')">
+          <div class="ac-list" id="ac-acct-${row.id}"></div>
+        </div>
+      </td>
+      <td><input type="text" value="${row.partner||''}" placeholder="거래처" style="width:100%" onchange="updateRow('${row.id}','partner',this.value)"></td>
+      <td><input type="text" value="${row.memo||''}" placeholder="적요" style="width:100%" onchange="updateRow('${row.id}','memo',this.value)"></td>
+      <td><input type="number" value="${row.amt||''}" placeholder="0" style="width:100%;text-align:right" oninput="updateRow('${row.id}','amt',this.value);recalcEntry()"></td>
+      <td><input type="number" value="${row.vat||''}" placeholder="0" style="width:100%;text-align:right" oninput="updateRow('${row.id}','vat',this.value);recalcEntry()"></td>
+      <td id="rowtotal-${row.id}" style="text-align:right;font-family:monospace;font-size:12px;font-weight:600;padding:4px 8px">${fmt(Number(row.amt||0)+Number(row.vat||0))}원</td>
+      <td><button class="del-row" onclick="delRow('${row.id}')">✕</button></td>
+    </tr>`).join('');
+}
+
+function addRow(gubun){
+  const lastRow=G.eRows[G.eRows.length-1];
+  const memo=document.getElementById('e-memo')?.value||'';
+  const partner=document.getElementById('e-partner')?.value||lastRow?.partner||'';
+  G.eRows.push({id:uid(),gubun,acct:'',partner,memo,amt:0,vat:0});
+  const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows();
+  recalcEntry();
+}
+function delRow(id){ if(G.eRows.length<=2){toast('최소 2행이 필요합니다.','info');return;} G.eRows=G.eRows.filter(r=>r.id!==id); const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows(); recalcEntry(); }
+function updateRow(id,field,val){ const r=G.eRows.find(x=>x.id===id); if(r){r[field]=(field==='amt'||field==='vat')?pn(val):val;} if(field==='acct'&&document.getElementById('acct-'+id)){document.getElementById('acct-'+id).value=val;} if(field==='amt'||field==='vat'){const td=document.getElementById('rowtotal-'+id);if(td)td.textContent=fmt(Number(r.amt||0)+Number(r.vat||0))+'원';} }
+
+function fillMemoToRows(){
+  const memo=document.getElementById('e-memo')?.value||'';
+  G.eRows.forEach(r=>{ r.memo=memo; });
+  const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows();
+}
+function fillPartnerToRows(val){
+  G.eRows.forEach(r=>{ if(!r.partner||r.partner==='') r.partner=val; });
+  const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows();
+}
+
+function applyTax(){
+  const supply=pn(document.getElementById('e-supply')?.value||0);
+  const taxType=document.getElementById('e-taxtype')?.value||'과세';
+  const vat=taxType==='과세'?Math.round(supply*0.1):0;
+  const vatEl=document.getElementById('e-vat'); if(vatEl)vatEl.value=vat;
+  const totalEl=document.getElementById('e-total-amt'); if(totalEl)totalEl.value=supply+vat;
+  const partner=document.getElementById('e-partner')?.value||'';
+  const memo=document.getElementById('e-memo')?.value||'';
+  // 분개 자동 구성
+  if(supply>0){
+    const mainAcct=G.eRows[0]?.acct||'상품';
+    G.eRows=[
+      {id:uid(),gubun:'차변',acct:mainAcct,partner,memo,amt:supply,vat:vat>0?vat:0},
+    ];
+    if(vat>0) G.eRows.push({id:uid(),gubun:'차변',acct:'부가세대급금',partner,memo,amt:0,vat:0});
+    G.eRows.push({id:uid(),gubun:'대변',acct:'미지급금',partner,memo,amt:supply+vat,vat:0});
+    const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows();
+  }
+  recalcEntry();
+}
+
+function toggleEmpDate(){ const t=document.getElementById('e-emp-type')?.value; const el=document.getElementById('e-emp-in'); if(el)el.style.display=t==='date'?'block':'none'; }
+function toggleEmpOutDate(){ const t=document.getElementById('e-emp-out-type')?.value; const el=document.getElementById('e-emp-out'); if(el)el.style.display=t==='date'?'block':'none'; }
+
+function recalcEntry(){
+  const debit=G.eRows.filter(r=>r.gubun==='차변').reduce((s,r)=>s+pn(r.amt)+pn(r.vat),0);
+  const credit=G.eRows.filter(r=>r.gubun==='대변').reduce((s,r)=>s+pn(r.amt)+pn(r.vat),0);
+  const supply=G.eRows.reduce((s,r)=>s+pn(r.amt),0);
+  const vat=G.eRows.reduce((s,r)=>s+pn(r.vat),0);
+  const total=supply+vat;
+  const bal=document.getElementById('entry-balance');
+  const ss=document.getElementById('jt-sum-supply');
+  const sv=document.getElementById('jt-sum-vat');
+  const st=document.getElementById('jt-sum-total');
+  if(ss)ss.textContent=fmt(supply)+'원';
+  if(sv)sv.textContent=fmt(vat)+'원';
+  if(st)st.textContent=fmt(total)+'원';
+  if(bal){
+    const diff=debit-credit;
+    bal.textContent=diff===0?'✓ 차대변 일치':`⚠ 불일치: ${fmt(Math.abs(diff))}원`;
+    bal.style.color=diff===0?'var(--grn)':'var(--red)';
+  }
+  // 합계금액 업데이트
+  const totalAmtEl=document.getElementById('e-total-amt');
+  if(totalAmtEl&&G.entryPage==='general') totalAmtEl; // general은 분개에서만
+}
+
+function previewEvidFiles(files){
+  const prev=document.getElementById('evid-preview');
+  if(!prev)return;
+  const list=Array.from(files);
+  prev.innerHTML=list.map(f=>`<div class="fi" style="margin-bottom:4px">
+    <div class="fic ${fe(f.name)}">${f.name.split('.').pop().toUpperCase().slice(0,4)}</div>
+    <div class="fn"><div class="fn-n">${f.name}</div><div class="fn-s">${fs(f.size)}</div></div>
+    <span class="badge" style="background:var(--gbg);color:var(--grn)">저장 대기</span>
+  </div>`).join('');
+}
+
+function previewEntry(){
+  const date=document.getElementById('e-date')?.value||'';
+  if(!date){toast('전표일자를 입력해주세요.','error');return;}
+  const debit=G.eRows.filter(r=>r.gubun==='차변').reduce((s,r)=>s+pn(r.amt)+pn(r.vat),0);
+  const credit=G.eRows.filter(r=>r.gubun==='대변').reduce((s,r)=>s+pn(r.amt)+pn(r.vat),0);
+  if(debit===0){toast('금액을 입력해주세요.','error');return;}
+  if(debit!==credit){toast(`차대변이 일치하지 않습니다. 차액: ${fmt(Math.abs(debit-credit))}원`,'error');return;}
+  const person=document.getElementById('e-person')?.value||'';
+  const team=document.getElementById('e-team')?.value||'';
+  const channel=document.getElementById('e-channel')?.value||'';
+  const memo=document.getElementById('e-memo')?.value||'';
+  const partner=document.getElementById('e-partner')?.value||G.eRows[0]?.partner||'';
+  const bizno=document.getElementById('e-bizno')?.value||'';
+  const evid=document.getElementById('e-evid')?.value||'';
+  const evno=document.getElementById('e-evno')?.value||'';
+  const supply=pn(document.getElementById('e-supply')?.value||debit);
+  const vat=pn(document.getElementById('e-vat')?.value||0);
+  const empInType=document.getElementById('e-emp-type')?.value||'none';
+  const empIn=empInType==='date'?(document.getElementById('e-emp-in')?.value||''):'관련 없음';
+  const empOutType=document.getElementById('e-emp-out-type')?.value||'none';
+  const empOut=empOutType==='date'?(document.getElementById('e-emp-out')?.value||''):'관련 없음';
+
+  G.ePending = {date,person,team,channel,memo,partner,bizno,evid,evno,supply,vat,total:debit,empIn,empOut};
+
+  document.getElementById('confirm-title').textContent=`전표 저장 확인 — ${G.entryPage==='trade'?'매입매출전표':'일반전표'}`;
+  document.getElementById('confirm-body').innerHTML=`
+  <div style="background:var(--bg2);border-radius:var(--r);padding:14px;margin-bottom:16px;font-size:13px">
+    <div style="font-weight:600;margin-bottom:10px;color:var(--text2)">전표 저장 전 내용을 확인해주세요</div>
+    <div class="g2" style="gap:8px;margin-bottom:10px">
+      <div><span style="color:var(--text3);font-size:12px">전표일자</span><div style="font-weight:500">${date}</div></div>
+      <div><span style="color:var(--text3);font-size:12px">유형</span><div><span class="badge b-manual">${G.entryPage==='trade'?'매입매출전표':'일반전표'}</span></div></div>
+      <div><span style="color:var(--text3);font-size:12px">거래처명</span><div style="font-weight:500">${partner||'-'}</div></div>
+      <div><span style="color:var(--text3);font-size:12px">담당자</span><div>${person||'-'}</div></div>
+      <div><span style="color:var(--text3);font-size:12px">팀</span><div>${team||'-'}</div></div>
+      <div><span style="color:var(--text3);font-size:12px">채널</span><div>${chB(channel)}</div></div>
+      ${G.entryPage==='trade'?`
+      <div><span style="color:var(--text3);font-size:12px">적격증빙</span><div>${evid||'-'}</div></div>
+      <div><span style="color:var(--text3);font-size:12px">증빙번호</span><div style="font-family:monospace;font-size:12px">${evno||'-'}</div></div>`:''}
+    </div>
+    <div style="background:var(--bg);border-radius:var(--r);padding:10px;margin-bottom:10px">
+      <table style="width:100%;font-size:12px"><thead><tr>
+        <th style="padding:4px 8px;background:var(--bg2);border:0.5px solid var(--bd)">구분</th>
+        <th style="padding:4px 8px;background:var(--bg2);border:0.5px solid var(--bd)">계정과목</th>
+        <th style="padding:4px 8px;background:var(--bg2);border:0.5px solid var(--bd)">거래처</th>
+        <th style="padding:4px 8px;background:var(--bg2);border:0.5px solid var(--bd)">적요</th>
+        <th style="padding:4px 8px;background:var(--bg2);border:0.5px solid var(--bd);text-align:right">금액</th>
+      </tr></thead><tbody>
+      ${G.eRows.map(r=>`<tr style="background:${r.gubun==='차변'?'#f0f7ff':'#fff8f0'}">
+        <td style="padding:4px 8px;border:0.5px solid var(--bd)"><span class="badge" style="${r.gubun==='차변'?'background:#E3F2FD;color:#0D47A1':'background:#FFF3E0;color:#BF360C'}">${r.gubun}</span></td>
+        <td style="padding:4px 8px;border:0.5px solid var(--bd)">${r.acct||'-'}</td>
+        <td style="padding:4px 8px;border:0.5px solid var(--bd)">${r.partner||'-'}</td>
+        <td style="padding:4px 8px;border:0.5px solid var(--bd)">${r.memo||'-'}</td>
+        <td style="padding:4px 8px;border:0.5px solid var(--bd);text-align:right;font-weight:600;font-family:monospace">${fmt(pn(r.amt)+pn(r.vat))}원</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:20px;font-size:13px;font-weight:600">
+      <span>차변 합계: ${fmt(debit)}원</span>
+      <span>대변 합계: ${fmt(credit)}원</span>
+      <span style="color:var(--grn)">✓ 대차 일치</span>
+    </div>
+    ${memo?`<div style="margin-top:8px;font-size:12px;color:var(--text2)">전표 적요: <strong>${memo}</strong></div>`:''}
+  </div>
+  <div style="font-size:13px;font-weight:500;text-align:center;color:var(--blue)">전표를 저장하시겠습니까?</div>`;
+  document.getElementById('confirm-ov').style.display='flex';
+}
+
+function closeConfirm(){ document.getElementById('confirm-ov').style.display='none'; G.ePending=null; }
+
+async function doSaveEntry(){
+  const btn=document.getElementById('confirm-save-btn');
+  btn.disabled=true; btn.textContent='저장 중...';
+  const p=G.ePending;
+  if(!p){closeConfirm();return;}
+  try{
+    const vno=await getNextVoucherNo(p.date, G.entryPage==='trade'?'trade':'general');
+    const mainAcct=G.eRows.find(r=>r.gubun==='차변')?.acct||'';
+    const voucher={
+      id:uid(),
+      전표유형:'직접입력',
+      전표입력유형:G.entryPage==='trade'?'매입매출전표':'일반전표',
+      전표번호:vno,
+      전표일자:p.date,
+      청구일자:p.date,
+      거래처명:p.partner,
+      사업자번호:p.bizno,
+      계정과목:mainAcct,
+      공급가액:p.supply,
+      부가세:p.vat,
+      합계금액:p.total,
+      적요:p.memo,
+      담당자:p.person,
+      팀명:p.team,
+      채널:p.channel,
+      업로드팀:p.team,
+      업로드기간:p.date.slice(0,10),
+      과세유형:document.getElementById('e-taxtype')?.value||'과세',
+      적격증빙:p.evid,
+      증빙번호:p.evno,
+      분개내역:JSON.stringify(G.eRows),
+      emp_입고일자:p.empIn,
+      emp_반출일자:p.empOut,
+    };
+    const{error}=await sb.from('vouchers').insert(voucher);
+    if(error)throw error;
+
+    // 증빙파일 업로드
+    const fileInput=document.getElementById('evid-file');
+    if(fileInput && fileInput.files.length>0){
+      for(const f of Array.from(fileInput.files)){
+        const path=`${voucher.id}/${Date.now()}_${f.name}`;
+        await sb.storage.from(BUCKET).upload(path,f,{upsert:true});
+        await sb.from('voucher_files').insert({voucher_id:voucher.id,file_name:f.name,file_path:path,file_type:f.type,file_size:f.size,uploaded_by:p.person||'직접입력'});
+      }
+    }
+
+    closeConfirm();
+    toast(`전표번호 ${vno} 저장 완료!`,'success');
+    initEntryRows();
+    G.ePending=null;
+    await loadVS();
+    renderEntryForm(G.entryPage);
+  }catch(e){
+    toast('저장 실패: '+e.message,'error');
+    btn.disabled=false; btn.textContent='전표 저장';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 채널 관리 (경영지원팀)
+// ═══════════════════════════════════════════════════════
+async function openChMgmt(){
+  document.getElementById('ch-ov').style.display='flex';
+  document.getElementById('ch-body').innerHTML='<div class="loading"><div class="spin"></div>로딩 중...</div>';
+  await loadChannels();
+  document.getElementById('ch-body').innerHTML=`
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">채널을 추가하거나 삭제할 수 있습니다.</div>
+    <div id="ch-list">${G.channels.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--bd)">
+      <span style="flex:1">${c}</span>
+      <button class="btn btn-sm btn-danger" onclick="deleteChannel('${c}')">삭제</button>
+    </div>`).join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <input type="text" id="new-ch-inp" placeholder="새 채널명 입력" style="flex:1">
+      <button class="btn btn-grn" onclick="addChannel()">추가</button>
+    </div>`;
+}
+function closeChMgmt(){ document.getElementById('ch-ov').style.display='none'; }
+async function addChannel(){
+  const val=document.getElementById('new-ch-inp')?.value?.trim();
+  if(!val){toast('채널명을 입력해주세요.','info');return;}
+  try{
+    await sb.from('channel_list').insert({channel_name:val,is_default:false});
+    toast(`'${val}' 채널이 추가됐습니다.`,'success');
+    await loadChannels();
+    openChMgmt();
+  }catch(e){toast('추가 실패: '+e.message,'error');}
+}
+async function deleteChannel(name){
+  if(!confirm(`'${name}' 채널을 삭제하시겠습니까?`))return;
+  try{
+    await sb.from('channel_list').delete().eq('channel_name',name);
+    toast(`'${name}' 채널이 삭제됐습니다.`,'info');
+    await loadChannels();
+    openChMgmt();
+  }catch(e){toast('삭제 실패: '+e.message,'error');}
+}
+
+// ═══════════════════════════════════════════════════════
 // 전표 조회 탭
-// ══════════════════════════════════════════════
-function renderList(){
+// ═══════════════════════════════════════════════════════
+async function renderList(){
+  await loadVS();
   const periods=[...new Set(G.vs.map(r=>r.업로드기간||''))].filter(Boolean).sort().reverse();
   const teams=[...new Set(G.vs.map(r=>r.팀명||''))].filter(Boolean).sort();
+  const accts=[...new Set(G.vs.map(r=>r.계정과목||''))].filter(Boolean).sort();
+  const partners=[...new Set(G.vs.map(r=>r.거래처명||''))].filter(Boolean).sort();
   document.getElementById('content').innerHTML=`
-  <div class="fb">
+  <div class="fb" style="margin-bottom:8px">
     <select id="fl-p" onchange="applyF()"><option value="">전체 기간</option>${periods.map(p=>`<option>${p}</option>`).join('')}</select>
-    <select id="fl-t" onchange="applyF()"><option value="">전체 유형</option><option>카드전표</option><option>매입전표</option><option>일반전표</option><option>매입매출전표</option></select>
-    <select id="fl-i" onchange="applyF()"><option value="">전체 입력방식</option><option value="직접입력">직접입력</option><option value="파일업로드">파일업로드</option></select>
+    <select id="fl-t" onchange="applyF()"><option value="">전체 유형</option><option>카드전표</option><option>매입전표</option><option>직접입력</option></select>
     <select id="fl-tm" onchange="applyF()"><option value="">전체 팀</option>${teams.map(t=>`<option>${t}</option>`).join('')}</select>
-    <select id="fl-ch" onchange="applyF()"><option value="">전체 채널</option>${CH.map(c=>`<option>${c}</option>`).join('')}<option value="__none">미부여</option></select>
-    <input id="fl-q" type="text" placeholder="거래처·적요 검색" oninput="applyF()" style="width:150px">
-    ${G.mgmt?'<span style="font-size:12px;padding:4px 10px;background:var(--obg);color:var(--org);border-radius:6px;font-weight:500">경영지원팀 모드</span>':''}
+    <select id="fl-ch" onchange="applyF()"><option value="">전체 채널</option>${G.channels.map(c=>`<option>${c}</option>`).join('')}<option value="__none">미부여</option></select>
+    <select id="fl-ac" onchange="applyF()"><option value="">전체 계정과목</option>${accts.map(a=>`<option>${a}</option>`).join('')}</select>
+    <select id="fl-pt" onchange="applyF()"><option value="">전체 거래처</option>${partners.map(a=>`<option>${a}</option>`).join('')}</select>
+    <input id="fl-q" type="text" placeholder="거래처·적요 검색" oninput="applyF()" style="width:140px">
+    ${G.mgmt?'<span style="font-size:11px;padding:4px 10px;background:var(--obg);color:var(--org);border-radius:6px;font-weight:500">경영지원팀 모드</span>':''}
   </div>
-  <div style="font-size:11px;color:var(--text3);margin-bottom:8px">행 클릭 → 상세 내역 및 수정</div>
-  <div class="tw"><table><thead><tr>
-    <th>유형</th><th>입력</th><th>전표일자</th><th>팀</th><th>기간</th><th>거래처</th>
-    <th>계정과목</th><th style="text-align:right">합계금액</th><th>담당자</th><th>채널</th><th>증빙</th><th>전표번호</th>
-  </tr></thead>
-  <tbody id="vtb">${buildRows(G.vs)}</tbody></table></div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:8px">행 클릭 → 상세 보기 및 수정. 증빙 없는 전표는 빨간색 표시.</div>
+  <div class="tw"><table>
+    <thead><tr>
+      <th>전표번호</th><th>유형</th><th>전표일자</th><th>팀</th><th>거래처</th>
+      <th>계정과목</th><th style="text-align:right">합계금액</th>
+      <th>담당자</th><th>채널</th><th>증빙</th><th>EMP입고</th>
+    </tr></thead>
+    <tbody id="vtb">${buildRows(G.vs)}</tbody>
+  </table></div>
   <div id="vcnt" style="font-size:12px;color:var(--text3);margin-top:8px;text-align:right">${G.vs.length}건 · ${fmt(G.vs.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</div>`;
 }
 
 function buildRows(recs){
-  if(!recs.length)return'<tr><td colspan="12" style="text-align:center;padding:2.5rem;color:var(--text3)">전표가 없습니다.</td></tr>';
+  if(!recs.length)return'<tr><td colspan="11" style="text-align:center;padding:2.5rem;color:var(--text3)">전표가 없습니다.</td></tr>';
   return recs.map(r=>`<tr class="vrow${!r.채널?' no-ch':''}" onclick="openDetail('${r.id}')">
-    <td><span class="badge ${r.전표유형==='카드전표'?'b-card':r.입력방식==='직접입력'?'b-manual':'b-buy'}">${r.전표유형||'전표'}</span></td>
-    <td style="font-size:10px;color:var(--text3)">${r.입력방식==='직접입력'?'직접':'파일'}</td>
+    <td style="font-family:monospace;font-size:11px;${!r.적격증빙&&r.전표유형==='직접입력'?'color:var(--red)':''}">${r.전표번호||'-'}</td>
+    <td><span class="badge ${r.전표유형==='카드전표'?'b-card':r.전표유형==='매입전표'?'b-buy':'b-manual'}">${r.전표입력유형||r.전표유형}</span></td>
     <td style="white-space:nowrap;font-size:11px">${r.전표일자||'-'}</td>
     <td style="font-size:11px">${r.팀명||'-'}</td>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${r.업로드기간||'-'}</td>
-    <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.거래처명||'-'}</td>
+    <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.거래처명||'-'}</td>
     <td style="font-size:11px;color:var(--text2)">${r.계정과목||'-'}</td>
     <td style="text-align:right;white-space:nowrap;font-weight:600">${fmt(r.합계금액)}원</td>
     <td style="font-size:11px">${r.담당자||'-'}</td>
     <td>${chB(r.채널)}</td>
-    <td><button class="btn btn-sm" onclick="event.stopPropagation();openFM('${r.id}','${(r.거래처명||'').replace(/'/g,"\\'")}')">파일</button></td>
-    <td style="font-size:11px;color:var(--text2)">${r.전표번호||'-'}</td>
+    <td><button class="btn btn-sm" style="${!r.적격증빙?'color:var(--red);border-color:var(--red)':''}" onclick="event.stopPropagation();openFM('${r.id}','${(r.거래처명||'').replace(/'/g,"\\'")}')">파일</button></td>
+    <td style="font-size:11px;color:var(--text2)">${r.emp_입고일자||'-'}</td>
   </tr>`).join('');
 }
 
 function applyF(){
-  const p=document.getElementById('fl-p')?.value||'',t=document.getElementById('fl-t')?.value||'',im=document.getElementById('fl-i')?.value||'',tm=document.getElementById('fl-tm')?.value||'',ch=document.getElementById('fl-ch')?.value||'',q=(document.getElementById('fl-q')?.value||'').toLowerCase();
+  const p=document.getElementById('fl-p')?.value||'';
+  const t=document.getElementById('fl-t')?.value||'';
+  const tm=document.getElementById('fl-tm')?.value||'';
+  const ch=document.getElementById('fl-ch')?.value||'';
+  const ac=document.getElementById('fl-ac')?.value||'';
+  const pt=document.getElementById('fl-pt')?.value||'';
+  const q=(document.getElementById('fl-q')?.value||'').toLowerCase();
   const fl=G.vs.filter(r=>{
     if(p&&r.업로드기간!==p)return false;
     if(t&&r.전표유형!==t)return false;
-    if(im&&r.입력방식!==im)return false;
     if(tm&&r.팀명!==tm)return false;
     if(ch==='__none'&&r.채널)return false;
     if(ch&&ch!=='__none'&&r.채널!==ch)return false;
+    if(ac&&r.계정과목!==ac)return false;
+    if(pt&&r.거래처명!==pt)return false;
     if(q&&!((r.거래처명||'').toLowerCase().includes(q)||(r.적요||'').toLowerCase().includes(q)))return false;
     return true;
   });
-  const tb=document.getElementById('vtb');if(tb)tb.innerHTML=buildRows(fl);
-  const cnt=document.getElementById('vcnt');if(cnt)cnt.textContent=`${fl.length}건 · ${fmt(fl.reduce((s,r)=>s+Number(r.합계금액||0),0))}원`;
+  const tb=document.getElementById('vtb'); if(tb)tb.innerHTML=buildRows(fl);
+  const cnt=document.getElementById('vcnt'); if(cnt)cnt.textContent=`${fl.length}건 · ${fmt(fl.reduce((s,r)=>s+Number(r.합계금액||0),0))}원`;
 }
 
-// ══════════════════════════════════════════════
-// 전표 상세/수정
-// ══════════════════════════════════════════════
+// ── 엑셀 다운로드 ──
+function exportExcel(){
+  if(!G.vs.length){toast('데이터가 없습니다.','info');return;}
+  const headers=['전표번호','전표유형','전표입력유형','전표일자','청구일자','팀명','채널','거래처명','사업자번호','계정과목','공급가액','부가세','합계금액','적요','담당자','증빙번호','emp_입고일자','emp_반출일자'];
+  const rows=G.vs.map(r=>headers.map(h=>r[h]??''));
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'전표목록');
+  XLSX.writeFile(wb,`전표DB_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('엑셀 다운로드 완료','success');
+}
+
+// ── CSV 내보내기 ──
+function exportCSV(){
+  if(!G.vs.length){toast('데이터가 없습니다.','info');return;}
+  const h=['전표유형','전표일자','팀명','채널','거래처명','계정과목','공급가액','부가세','합계금액','적요','담당자','전표번호'];
+  const rows=G.vs.map(r=>h.map(k=>`"${String(r[k]||'').replace(/"/g,'""')}"`).join(','));
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(h.join(',')+'\n'+rows.join('\n'));a.download='전표DB_'+new Date().toISOString().slice(0,10)+'.csv';a.click();toast('CSV 내보내기 완료','success');
+}
+
+// ═══════════════════════════════════════════════════════
+// 전표 상세 / 수정
+// ═══════════════════════════════════════════════════════
 function openDetail(id){
   const r=G.vs.find(v=>v.id===id);if(!r)return;
   G.cur={...r};G.edit=false;
-  document.getElementById('d-title').textContent=`${r.전표유형||'전표'} — ${r.거래처명||''}`;
-  document.getElementById('edit-btn').textContent='수정';
-  document.getElementById('edit-btn').className='btn btn-sm btn-blue';
+  document.getElementById('d-title').textContent=`${r.전표입력유형||r.전표유형} — ${r.전표번호||''} ${r.거래처명||''}`;
+  document.getElementById('edit-btn').textContent='수정';document.getElementById('edit-btn').className='btn btn-sm btn-blue';document.getElementById('edit-btn').style.display='inline-flex';
   document.getElementById('save-btn').style.display='none';
   renderDetailBody(r,false);
   document.getElementById('dov').style.display='flex';
 }
+
 function renderDetailBody(r,em){
   const ro=em?'':'readonly';
+  let jHtml='';
+  if(r.분개내역){try{
+    const rows=JSON.parse(r.분개내역);
+    jHtml=`<div class="es"><div class="es-t">분개 내역</div><table class="jt"><thead><tr><th>구분</th><th>계정과목</th><th>거래처</th><th>적요</th><th style="text-align:right">금액</th></tr></thead><tbody>
+    ${rows.map(jr=>`<tr class="${jr.gubun==='차변'?'jt-d':'jt-c'}"><td><span class="badge" style="${jr.gubun==='차변'?'background:#E3F2FD;color:#0D47A1':'background:#FFF3E0;color:#BF360C'}">${jr.gubun}</span></td><td>${jr.acct||'-'}</td><td>${jr.partner||'-'}</td><td>${jr.memo||'-'}</td><td style="text-align:right;font-weight:600;font-family:monospace">${fmt(Number(jr.amt||0)+Number(jr.vat||0))}원</td></tr>`).join('')}
+    </tbody></table></div>`;
+  }catch{}}
   document.getElementById('d-body').innerHTML=`
-  <div class="ds"><div class="ds-t">기본 정보</div>
-    <div class="g2" style="gap:10px">
-      <div class="fg"><label class="fl">전표 유형</label><input value="${r.전표유형||''}" readonly></div>
-      <div class="fg"><label class="fl">전표 번호</label><input id="e-전표번호" value="${r.전표번호||''}" ${ro}></div>
-      <div class="fg"><label class="fl">전표일자</label><input type="${em?'date':'text'}" id="e-전표일자" value="${r.전표일자||''}" ${ro}></div>
-      <div class="fg"><label class="fl">담당자</label><input id="e-담당자" value="${r.담당자||''}" ${ro}></div>
-      <div class="fg"><label class="fl">거래처명</label><input id="e-거래처명" value="${r.거래처명||''}" ${ro}></div>
-      <div class="fg"><label class="fl">사업자번호</label><input id="e-사업자번호" value="${r.사업자번호||''}" ${ro}></div>
-    </div>
-  </div>
-  <div class="ds"><div class="ds-t">금액</div>
-    <div class="g3" style="gap:10px">
-      <div class="fg"><label class="fl">공급가액</label><input id="e-공급가액" value="${fmt(r.공급가액)}" ${ro}></div>
-      <div class="fg"><label class="fl">부가세</label><input id="e-부가세" value="${fmt(r.부가세)}" ${ro}></div>
-      <div class="fg"><label class="fl">합계금액</label><input id="e-합계금액" value="${fmt(r.합계금액)}" ${em?'':'readonly'} style="font-weight:600"></div>
-    </div>
-  </div>
-  <div class="ds"><div class="ds-t">계정과목 / 채널</div>
-    <div class="g2" style="gap:10px">
-      <div class="fg"><label class="fl">계정과목</label><input id="e-계정과목" value="${r.계정과목||''}" ${ro}></div>
-      <div class="fg"><label class="fl">채널</label>
-        ${(em&&G.mgmt)?`<select id="e-채널"><option value="">-- 선택 --</option>${CH.map(c=>`<option ${r.채널===c?'selected':''}>${c}</option>`).join('')}</select>`:`<div style="padding-top:4px">${chB(r.채널)}${!G.mgmt?'<span style="font-size:11px;color:var(--text3);margin-left:8px">경영지원팀만 수정</span>':''}</div>`}
-      </div>
-      <div class="fg"><label class="fl">팀명</label>
-        ${(em&&G.mgmt)?`<select id="e-팀명">${TEAMS.map(t=>`<option ${r.팀명===t?'selected':''}>${t}</option>`).join('')}</select>`:`<input value="${r.팀명||''}" readonly>`}
-      </div>
-      <div class="fg"><label class="fl">적격증빙</label><input id="e-적격증빙" value="${r.적격증빙||''}" ${ro}></div>
-    </div>
-  </div>
-  <div class="ds"><div class="ds-t">적요</div>
-    <textarea id="e-적요" rows="2" ${ro}>${r.적요||''}</textarea>
-  </div>`;
+  <div class="es"><div class="es-t">기본 정보</div><div class="g4" style="gap:10px">
+    <div class="fg"><label class="fl">전표 번호</label><input value="${r.전표번호||''}" readonly style="font-family:monospace"></div>
+    <div class="fg"><label class="fl">전표 유형</label><input value="${r.전표입력유형||r.전표유형||''}" readonly></div>
+    <div class="fg"><label class="fl">전표일자</label><input type="${em?'date':'text'}" id="e-전표일자" value="${r.전표일자||''}" ${ro}></div>
+    <div class="fg"><label class="fl">담당자</label><input id="e-담당자" value="${r.담당자||''}" ${ro}></div>
+  </div></div>
+  <div class="es"><div class="es-t">거래처</div><div class="g2" style="gap:10px">
+    <div class="fg"><label class="fl">거래처명</label><input id="e-거래처명" value="${r.거래처명||''}" ${ro}></div>
+    <div class="fg"><label class="fl">사업자번호</label><input id="e-사업자번호" value="${r.사업자번호||''}" ${ro}></div>
+    <div class="fg"><label class="fl">적격증빙</label><input id="e-적격증빙" value="${r.적격증빙||''}" ${ro}></div>
+    <div class="fg"><label class="fl">증빙번호</label><input id="e-증빙번호" value="${r.증빙번호||''}" ${ro} style="font-family:monospace"></div>
+  </div></div>
+  <div class="es"><div class="es-t">금액</div><div class="g3" style="gap:10px">
+    <div class="fg"><label class="fl">공급가액</label><input id="e-공급가액" value="${fmt(r.공급가액)}" ${ro}></div>
+    <div class="fg"><label class="fl">부가세</label><input id="e-부가세" value="${fmt(r.부가세)}" ${ro}></div>
+    <div class="fg"><label class="fl">합계금액</label><input id="e-합계금액" value="${fmt(r.합계금액)}" ${em?'':'readonly'} style="${em?'':'font-weight:600'}"></div>
+  </div></div>
+  ${jHtml}
+  <div class="es"><div class="es-t">채널 귀속</div><div class="g2" style="gap:10px">
+    <div class="fg"><label class="fl">팀명</label>${(em&&G.mgmt)?`<select id="e-팀명">${TM.map(t=>`<option ${r.팀명===t?'selected':''}>${t}</option>`).join('')}</select>`:`<input value="${r.팀명||''}" readonly>`}</div>
+    <div class="fg"><label class="fl">채널</label>${(em&&G.mgmt)?`<div class="ac-wrap"><input type="text" id="e-채널" value="${r.채널||''}" autocomplete="off" oninput="showAc('e-채널',${JSON.stringify(G.channels)})" onblur="setTimeout(()=>hideAc('e-채널'),200)"><div class="ac-list" id="ac-e-채널"></div></div>`:`<div style="padding-top:4px">${chB(r.채널)}${!G.mgmt?'<span style="font-size:11px;color:var(--text3);margin-left:8px">경영지원팀만 수정</span>':''}</div>`}</div>
+  </div></div>
+  <div class="es"><div class="es-t">EMP 입고 / 반출</div><div class="g2" style="gap:10px">
+    <div class="fg"><label class="fl">EMP 입고일자</label><input id="e-emp_입고일자" value="${r.emp_입고일자||''}" ${ro} placeholder="날짜 또는 '관련 없음'"></div>
+    <div class="fg"><label class="fl">EMP 반출일자</label><input id="e-emp_반출일자" value="${r.emp_반출일자||''}" ${ro} placeholder="날짜 또는 '관련 없음'"></div>
+  </div></div>
+  <div class="es"><div class="es-t">적요</div><textarea id="e-적요" rows="2" ${ro}>${r.적요||''}</textarea></div>`;
 }
-function toggleEdit(){
-  G.edit=!G.edit;
-  const eb=document.getElementById('edit-btn'),sb2=document.getElementById('save-btn');
-  if(G.edit){eb.textContent='취소';eb.className='btn btn-sm btn-danger';sb2.style.display='inline-flex'}
-  else{eb.textContent='수정';eb.className='btn btn-sm btn-blue';sb2.style.display='none'}
-  if(G.cur)renderDetailBody(G.cur,G.edit);
-}
+
+function toggleEdit(){ G.edit=!G.edit; const eb=document.getElementById('edit-btn'),sb=document.getElementById('save-btn'); if(G.edit){eb.textContent='취소';eb.className='btn btn-sm btn-danger';sb.style.display='inline-flex';}else{eb.textContent='수정';eb.className='btn btn-sm btn-blue';sb.style.display='none';} if(G.cur)renderDetailBody(G.cur,G.edit); }
 async function saveDetail(){
   const r=G.cur;if(!r)return;
-  const upd={전표번호:document.getElementById('e-전표번호')?.value||r.전표번호,전표일자:document.getElementById('e-전표일자')?.value||r.전표일자,담당자:document.getElementById('e-담당자')?.value||r.담당자,거래처명:document.getElementById('e-거래처명')?.value||r.거래처명,사업자번호:document.getElementById('e-사업자번호')?.value||r.사업자번호,공급가액:pn(document.getElementById('e-공급가액')?.value)||r.공급가액,부가세:pn(document.getElementById('e-부가세')?.value)||r.부가세,합계금액:pn(document.getElementById('e-합계금액')?.value)||r.합계금액,계정과목:document.getElementById('e-계정과목')?.value||r.계정과목,적요:document.getElementById('e-적요')?.value||r.적요,적격증빙:document.getElementById('e-적격증빙')?.value||r.적격증빙};
-  if(G.mgmt){upd.팀명=document.getElementById('e-팀명')?.value||r.팀명;upd.채널=document.getElementById('e-채널')?.value||r.채널}
+  const upd={
+    전표일자:document.getElementById('e-전표일자')?.value||r.전표일자,
+    담당자:document.getElementById('e-담당자')?.value||r.담당자,
+    거래처명:document.getElementById('e-거래처명')?.value||r.거래처명,
+    사업자번호:document.getElementById('e-사업자번호')?.value||r.사업자번호,
+    적격증빙:document.getElementById('e-적격증빙')?.value||r.적격증빙,
+    증빙번호:document.getElementById('e-증빙번호')?.value||r.증빙번호,
+    공급가액:pn(document.getElementById('e-공급가액')?.value)||r.공급가액,
+    부가세:pn(document.getElementById('e-부가세')?.value)||r.부가세,
+    합계금액:pn(document.getElementById('e-합계금액')?.value)||r.합계금액,
+    적요:document.getElementById('e-적요')?.value||r.적요,
+    emp_입고일자:document.getElementById('e-emp_입고일자')?.value||r.emp_입고일자,
+    emp_반출일자:document.getElementById('e-emp_반출일자')?.value||r.emp_반출일자,
+  };
+  if(G.mgmt){upd.팀명=document.getElementById('e-팀명')?.value||r.팀명; upd.채널=document.getElementById('e-채널')?.value||r.채널;}
   const sb2=document.getElementById('save-btn');sb2.disabled=true;sb2.textContent='저장 중...';
   try{
     const{error}=await sb.from('vouchers').update(upd).eq('id',r.id);if(error)throw error;
-    const idx=G.vs.findIndex(v=>v.id===r.id);if(idx>=0)G.vs[idx]={...G.vs[idx],...upd};
-    G.cur={...G.cur,...upd};
-    toast('저장됐습니다.','success');G.edit=false;
-    document.getElementById('edit-btn').textContent='수정';document.getElementById('edit-btn').className='btn btn-sm btn-blue';sb2.style.display='none';
+    const idx=G.vs.findIndex(v=>v.id===r.id);if(idx>=0)G.vs[idx]={...G.vs[idx],...upd};G.cur={...G.cur,...upd};
+    toast('저장됐습니다.','success');G.edit=false;document.getElementById('edit-btn').textContent='수정';document.getElementById('edit-btn').className='btn btn-sm btn-blue';sb2.style.display='none';
     renderDetailBody(G.cur,false);if(G.page==='list')applyF();
-  }catch(e){toast('저장 실패: '+e.message,'error');sb2.disabled=false;sb2.textContent='저장'}
+  }catch(e){toast('저장 실패: '+e.message,'error');sb2.disabled=false;sb2.textContent='저장';}
 }
-function closeDetail(){document.getElementById('dov').style.display='none';G.edit=false;G.cur=null}
+function closeDetail(){ document.getElementById('dov').style.display='none'; G.edit=false; G.cur=null; document.getElementById('edit-btn').style.display='inline-flex'; }
 
-// ══════════════════════════════════════════════
-// 증빙 파일
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// 증빙 파일 모달
+// ═══════════════════════════════════════════════════════
 async function openFM(vid,mn){
   document.getElementById('fm-title').textContent=`증빙 파일 — ${mn}`;
   document.getElementById('fm-body').innerHTML='<div class="loading"><div class="spin"></div>로딩 중...</div>';
@@ -944,139 +1232,45 @@ async function openFM(vid,mn){
   try{
     const{data:files,error}=await sb.from('voucher_files').select('*').eq('voucher_id',vid).order('created_at');
     if(error)throw error;
-    const fH=files&&files.length?files.map(f=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px">
-      <div style="font-size:11px;font-weight:700;width:30px;height:30px;border-radius:6px;background:#E3F2FD;color:#0D47A1;display:flex;align-items:center;justify-content:center">${(f.file_name||'').split('.').pop().toUpperCase().slice(0,4)}</div>
-      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.file_name}</div><div style="font-size:11px;color:var(--text3)">${new Date(f.created_at).toLocaleDateString('ko-KR')}</div></div>
-      <button class="btn btn-sm btn-blue" onclick="dlFile('${f.file_path}','${f.file_name}')">다운로드</button>
-      ${G.mgmt?`<button class="btn btn-sm btn-danger" onclick="delFile(${f.id},'${vid}','${mn}')">삭제</button>`:''}
-    </div>`).join(''):'<div style="font-size:13px;color:var(--text3);text-align:center;padding:1.5rem">첨부된 파일이 없습니다.</div>';
-    document.getElementById('fm-body').innerHTML=`${fH}<div style="margin-top:14px;border-top:0.5px solid var(--bd);padding-top:14px">
-      <label class="fl">파일 추가 (JPG, PNG, PDF, Excel 등)</label>
-      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:0.5px solid var(--bd2);border-radius:var(--r);font-size:12px;color:var(--text2)">
-        파일 선택<input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none" onchange="uploadFiles(this.files,'${vid}','${mn}')">
-      </label></div>`;
-  }catch(e){document.getElementById('fm-body').innerHTML=`<div style="color:var(--red)">${e.message}</div>`}
+    const fH=files.length?files.map(f=>`<div class="fi"><div class="fic ${fe(f.file_name)}">${(f.file_name||'').split('.').pop().toUpperCase().slice(0,4)}</div><div class="fn"><div class="fn-n">${f.file_name}</div><div class="fn-s">${fs(f.file_size||0)} · ${new Date(f.created_at).toLocaleDateString('ko-KR')}</div></div><button class="btn btn-sm btn-blue" onclick="dlFile('${f.file_path}','${f.file_name}')">다운로드</button>${G.mgmt?`<button class="btn btn-sm btn-danger" onclick="delFile(${f.id},'${vid}','${mn}')">삭제</button>`:''}</div>`).join(''):'<div style="font-size:13px;color:var(--text3);text-align:center;padding:1.5rem">첨부된 파일이 없습니다.</div>';
+    document.getElementById('fm-body').innerHTML=`${fH}<div style="margin-top:14px;border-top:0.5px solid var(--bd);padding-top:14px"><label class="fl">증빙 파일 추가</label><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:0.5px solid var(--bd2);border-radius:var(--r);font-size:12px;color:var(--text2)">파일 선택<input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.docx" style="display:none" onchange="uploadFiles(this.files,'${vid}','${mn}')"></label></div>`;
+  }catch(e){document.getElementById('fm-body').innerHTML=`<div style="color:var(--red)">${e.message}</div>`;}
 }
-function closeFM(){document.getElementById('fov').style.display='none'}
-async function uploadFiles(fl,vid,mn){
-  const files=Array.from(fl);let done=0;
-  for(const f of files){try{const path=`${vid}/${Date.now()}_${f.name}`;const{error:ue}=await sb.storage.from(BUCKET).upload(path,f,{upsert:true});if(ue)throw ue;await sb.from('voucher_files').insert({voucher_id:vid,file_name:f.name,file_path:path,file_type:f.type,file_size:f.size,uploaded_by:'팀원'});done++}catch(e){toast(`${f.name} 실패: `+e.message,'error')}}
-  if(done>0){toast(`${done}개 업로드됐습니다.`,'success');openFM(vid,mn)}
-}
-async function dlFile(path,fn){try{const{data,error}=await sb.storage.from(BUCKET).download(path);if(error)throw error;const url=URL.createObjectURL(data);const a=document.createElement('a');a.href=url;a.download=fn;a.click();URL.revokeObjectURL(url)}catch(e){toast('다운로드 실패: '+e.message,'error')}}
-async function delFile(fid,vid,mn){if(!confirm('삭제하시겠습니까?'))return;try{const{data:fd}=await sb.from('voucher_files').select('file_path').eq('id',fid).single();if(fd?.file_path)await sb.storage.from(BUCKET).remove([fd.file_path]);await sb.from('voucher_files').delete().eq('id',fid);toast('삭제됐습니다.','info');openFM(vid,mn)}catch(e){toast('삭제 실패: '+e.message,'error')}}
+function closeFM(){ document.getElementById('fov').style.display='none'; }
+async function uploadFiles(fl,vid,mn){ const files=Array.from(fl);let done=0; for(const f of files){try{const path=`${vid}/${Date.now()}_${f.name}`;const{error:ue}=await sb.storage.from(BUCKET).upload(path,f,{upsert:true});if(ue)throw ue;await sb.from('voucher_files').insert({voucher_id:vid,file_name:f.name,file_path:path,file_type:f.type,file_size:f.size,uploaded_by:'팀원'});done++;}catch(e){toast(f.name+' 실패: '+e.message,'error');}} if(done>0){toast(`${done}개 업로드됐습니다.`,'success');openFM(vid,mn);} }
+async function dlFile(path,fn){try{const{data,error}=await sb.storage.from(BUCKET).download(path);if(error)throw error;const url=URL.createObjectURL(data);const a=document.createElement('a');a.href=url;a.download=fn;a.click();URL.revokeObjectURL(url);}catch(e){toast('다운로드 실패','error');}}
+async function delFile(fid,vid,mn){if(!confirm('삭제하시겠습니까?'))return;try{const{data:fd}=await sb.from('voucher_files').select('file_path').eq('id',fid).single();if(fd?.file_path)await sb.storage.from(BUCKET).remove([fd.file_path]);await sb.from('voucher_files').delete().eq('id',fid);toast('삭제됐습니다.','info');openFM(vid,mn);}catch(e){toast('삭제 실패','error');}}
 
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // 채널별 분석
-// ══════════════════════════════════════════════
-function renderChannel(){
-  const fl=G.vs;
-  if(!fl.length){document.getElementById('content').innerHTML='<div class="empty">데이터가 없습니다.</div>';return}
+// ═══════════════════════════════════════════════════════
+async function renderChannel(){
+  await loadVS();
+  const fl=G.vs; if(!fl.length){document.getElementById('content').innerHTML='<div class="empty">데이터가 없습니다.</div>';return;}
   const tot=fl.reduce((s,r)=>s+Number(r.합계금액||0),0);
   const ck=v=>(!v)?'(미부여)':v;
-  const allC=[...CH,'(미부여)'];
+  const allC=[...G.channels,'(미부여)'];
   const bC=allC.map(ch=>({ch,amt:fl.filter(r=>ck(r.채널)===ch).reduce((s,r)=>s+Number(r.합계금액||0),0),cnt:fl.filter(r=>ck(r.채널)===ch).length}));
-  const bar=bC.filter(x=>x.amt>0).map(x=>{const p=tot?Math.round(x.amt/tot*100):0;return`<div style="width:${Math.max(p,.3)}%;background:${CH_COLOR[x.ch]||'#888'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;overflow:hidden;white-space:nowrap;padding:0 3px" title="${x.ch}: ${fmt(x.amt)}원 (${p}%)">${p>5?x.ch:''}</div>`}).join('');
+  const bar=bC.filter(x=>x.amt>0).map(x=>{const p=tot?Math.round(x.amt/tot*100):0;return`<div style="width:${Math.max(p,.3)}%;background:${CLC[x.ch]||'#888'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;overflow:hidden;white-space:nowrap;padding:0 3px" title="${x.ch}: ${fmt(x.amt)}원 (${p}%)">${p>5?x.ch:''}</div>`;}).join('');
   const cards=bC.filter(x=>x.amt>0).map(x=>`<div class="cc"><div style="margin-bottom:5px">${chB(x.ch==='(미부여)'?'':x.ch)}</div><div style="font-size:14px;font-weight:700">${fmt(x.amt)}원</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${x.cnt}건 · ${tot?Math.round(x.amt/tot*100):0}%</div></div>`).join('');
   const teams=[...new Set(fl.map(r=>r.팀명||'미지정'))].sort();
-  const thC=CH.map(c=>`<th style="text-align:right;font-size:10px">${c}</th>`).join('');
-  const tRows=teams.map(tm=>{const tr=fl.filter(r=>(r.팀명||'미지정')===tm);return`<tr><td><strong>${tm}</strong></td><td style="text-align:right;font-weight:700">${fmt(tr.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${CH.map(ch=>{const v=tr.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`}).join('')}</tr>`}).join('');
+  const thC=G.channels.map(c=>`<th style="text-align:right;font-size:10px">${c}</th>`).join('');
+  const tRows=teams.map(tm=>{const tr=fl.filter(r=>(r.팀명||'미지정')===tm);return`<tr><td><strong>${tm}</strong></td><td style="text-align:right;font-weight:600">${fmt(tr.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${G.channels.map(ch=>{const v=tr.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`;}).join('')}</tr>`;}).join('');
   const accts=[...new Set(fl.map(r=>r.계정과목||'기타'))].sort();
-  const aRows=accts.map(ac=>{const ar=fl.filter(r=>(r.계정과목||'기타')===ac);return`<tr><td><strong>${ac}</strong></td><td style="text-align:right;font-weight:700">${fmt(ar.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${CH.map(ch=>{const v=ar.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`}).join('')}</tr>`}).join('');
-  document.getElementById('content').innerHTML=`
-    <div class="seg">${bar}</div>
-    <div class="cg">${cards}</div>
-    <div style="height:0.5px;background:var(--bd);margin:4px 0 16px"></div>
-    <div style="font-size:14px;font-weight:600;margin-bottom:10px">팀별 × 채널 비용</div>
-    <div class="tw" style="margin-bottom:20px"><table><thead><tr><th>팀</th><th style="text-align:right">합계</th>${thC}</tr></thead><tbody>${tRows}</tbody></table></div>
-    <div style="font-size:14px;font-weight:600;margin-bottom:10px">계정과목 × 채널 비용</div>
-    <div class="tw"><table><thead><tr><th>계정과목</th><th style="text-align:right">합계</th>${thC}</tr></thead><tbody>${aRows}</tbody></table></div>`;
+  const aRows=accts.map(ac=>{const ar=fl.filter(r=>(r.계정과목||'기타')===ac);return`<tr><td><strong>${ac}</strong></td><td style="text-align:right;font-weight:600">${fmt(ar.reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${G.channels.map(ch=>{const v=ar.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`;}).join('')}</tr>`;}).join('');
+  document.getElementById('content').innerHTML=`<div class="seg">${bar}</div><div class="cg">${cards}</div><div style="height:0.5px;background:var(--bd);margin:4px 0 16px"></div><div style="font-size:14px;font-weight:600;margin-bottom:10px">팀별 × 채널 비용</div><div class="tw" style="margin-bottom:20px"><table><thead><tr><th>팀</th><th style="text-align:right">합계</th>${thC}</tr></thead><tbody>${tRows}</tbody></table></div><div style="font-size:14px;font-weight:600;margin-bottom:10px">계정과목 × 채널 비용</div><div class="tw"><table><thead><tr><th>계정과목</th><th style="text-align:right">합계</th>${thC}</tr></thead><tbody>${aRows}</tbody></table></div>`;
 }
 
-// ══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // 기간별 요약
-// ══════════════════════════════════════════════
-function renderSummary(){
+// ═══════════════════════════════════════════════════════
+async function renderSummary(){
+  await loadVS();
   const periods=[...new Set(G.vs.map(r=>r.업로드기간||''))].filter(Boolean).sort().reverse();
-  if(!periods.length){document.getElementById('content').innerHTML='<div class="empty">데이터가 없습니다.</div>';return}
-  const thC=CH.map(c=>`<th style="text-align:right;font-size:10px">${c}</th>`).join('');
-  document.getElementById('content').innerHTML=`<div class="tw"><table><thead><tr><th>기간</th><th>팀</th><th>건수</th><th style="text-align:right">합계</th><th style="text-align:right">카드</th><th style="text-align:right">매입/직입</th>${thC}<th style="text-align:right">미부여</th></tr></thead>
-  <tbody>${periods.map(p=>{const teams=[...new Set(G.vs.filter(r=>r.업로드기간===p).map(r=>r.팀명||'미지정'))].sort();return teams.map((tm,ti)=>{const mr=G.vs.filter(r=>r.업로드기간===p&&(r.팀명||'미지정')===tm);const tot=mr.reduce((s,r)=>s+Number(r.합계금액||0),0);const none=mr.filter(r=>!r.채널).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<tr>${ti===0?`<td rowspan="${teams.length}" style="font-weight:600;vertical-align:top;padding-top:10px;font-size:12px;white-space:nowrap">${p}</td>`:''}<td style="font-size:12px">${tm}</td><td>${mr.length}건</td><td style="text-align:right;font-weight:600">${fmt(tot)}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='카드전표').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형!=='카드전표').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${CH.map(ch=>{const v=mr.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`}).join('')}<td style="text-align:right;font-size:11px;color:${none>0?'var(--red)':'var(--text2)'}">${none>0?fmt(none)+'원':'-'}</td></tr>`}).join('')}).join('')}</tbody></table></div>`;
+  if(!periods.length){document.getElementById('content').innerHTML='<div class="empty">데이터가 없습니다.</div>';return;}
+  const thC=G.channels.map(c=>`<th style="text-align:right;font-size:10px">${c}</th>`).join('');
+  document.getElementById('content').innerHTML=`<div class="tw"><table><thead><tr><th>기간</th><th>팀</th><th>건수</th><th style="text-align:right">합계</th><th style="text-align:right">카드</th><th style="text-align:right">매입</th><th style="text-align:right">직접입력</th>${thC}<th style="text-align:right">미부여</th></tr></thead><tbody>${periods.map(p=>{const teams=[...new Set(G.vs.filter(r=>r.업로드기간===p).map(r=>r.팀명||'미지정'))].sort();return teams.map((tm,ti)=>{const mr=G.vs.filter(r=>r.업로드기간===p&&(r.팀명||'미지정')===tm);const tot=mr.reduce((s,r)=>s+Number(r.합계금액||0),0);const none=mr.filter(r=>!r.채널).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<tr>${ti===0?`<td rowspan="${teams.length}" style="font-weight:600;vertical-align:top;padding-top:10px;font-size:12px;white-space:nowrap">${p}</td>`:''}<td style="font-size:12px">${tm}</td><td>${mr.length}건</td><td style="text-align:right;font-weight:600">${fmt(tot)}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='카드전표').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='매입전표').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='직접입력').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${G.channels.map(ch=>{const v=mr.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`;}).join('')}<td style="text-align:right;font-size:11px;color:${none>0?'var(--red)':'var(--text2)'}">${none>0?fmt(none)+'원':'-'}</td></tr>`;}).join('');}).join('')}</tbody></table></div>`;
 }
-
-// ══════════════════════════════════════════════
-// 공통 모달
-// ══════════════════════════════════════════════
-function openModal(title,body,footer=''){
-  let m=document.getElementById('common-modal');
-  if(!m){m=document.createElement('div');m.id='common-modal';m.className='ov';m.onclick=e=>{if(e.target===m)closeModal()};document.body.appendChild(m)}
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()"><div class="mh"><div class="mh-t">${title}</div><button class="mc" onclick="closeModal()">×</button></div><div class="mb">${body}</div><div class="mf">${footer}</div></div>`;
-  m.style.display='flex';
-}
-function closeModal(){const m=document.getElementById('common-modal');if(m)m.style.display='none'}
-
-// ══════════════════════════════════════════════
-// CSV 내보내기
-// ══════════════════════════════════════════════
-function exportCSV(){
-  if(!G.vs.length){toast('데이터가 없습니다.','info');return}
-  const h=['전표유형','입력방식','전표일자','청구일자','팀명','채널','거래처명','사업자번호','계정과목','공급가액','부가세','합계금액','적요','담당자','전표번호','업로드기간','적격증빙'];
-  const rows=G.vs.map(r=>h.map(k=>`"${String(r[k]||'').replace(/"/g,'""')}"`).join(','));
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(h.join(',')+'\n'+rows.join('\n'));
-  a.download='전표DB_'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();toast('CSV 내보내기 완료','success');
-}
-
-// ══════════════════════════════════════════════
-// 시뮬레이션 데이터 삽입
-// ══════════════════════════════════════════════
-async function insertSimData(){
-  const simData=[
-    // 카드전표 — 비씨카드 1월
-    {id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:'2026-01-02',청구일자:'2026-01-25',거래처명:'Google Digital Inc.',사업자번호:'',계정과목:'지급수수료',공급가액:41186,부가세:0,합계금액:41186,적요:'구글 계정 월결제',담당자:'김민지',팀명:'쇼피팀',채널:'쇼피',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-001',적격증빙:'카드매출전표'},
-    {id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:'2026-01-02',청구일자:'2026-01-25',거래처명:'STAMPS.COM',사업자번호:'',계정과목:'운반비',공급가액:734895,부가세:0,합계금액:734895,적요:'Shipping Easy 부족분충전',담당자:'이수현',팀명:'물류팀',채널:'공통',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-002',적격증빙:'카드매출전표'},
-    {id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:'2026-01-03',청구일자:'2026-01-25',거래처명:'네이버페이',사업자번호:'524-86-01528',계정과목:'선급금',공급가액:258182,부가세:25818,합계금액:284000,적요:'아띠팩토리 팝업스토어 GWP',담당자:'박지훈',팀명:'도매팀',채널:'팝업도매',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-003',적격증빙:'카드매출전표'},
-    {id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:'2026-01-05',청구일자:'2026-01-25',거래처명:'스시스테이션 광교상현점',사업자번호:'102-18-55150',계정과목:'복리후생비',공급가액:72700,부가세:0,합계금액:72700,적요:'주말 출근 식대',담당자:'최세미',팀명:'경영지원',채널:'공통',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-004',적격증빙:'카드매출전표'},
-    {id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:'2026-01-08',청구일자:'2026-01-25',거래처명:'쿠팡',사업자번호:'120-88-00767',계정과목:'광고선전비',공급가액:1500000,부가세:150000,합계금액:1650000,적요:'쿠팡 로켓그로스 광고비',담당자:'이수현',팀명:'물류팀',채널:'쿠팡',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-005',적격증빙:'세금계산서'},
-    // 매입전표 — 1월
-    {id:uid(),전표유형:'매입전표',입력방식:'파일업로드',전표일자:'2026-01-01',청구일자:'2026-01-01',거래처명:'운복컴퍼니',사업자번호:'707-14-00530',계정과목:'지급임차료',공급가액:2520000,부가세:252000,합계금액:2772000,적요:'S102호 1월 임대료',담당자:'최세미',팀명:'경영지원',채널:'공통',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-006',적격증빙:'세금계산서'},
-    {id:uid(),전표유형:'매입전표',입력방식:'파일업로드',전표일자:'2026-01-02',청구일자:'2026-01-02',거래처명:'우체국 물류지원단',사업자번호:'404-09-54754',계정과목:'운반비',공급가액:622000,부가세:62200,합계금액:684200,적요:'우체국 택배 1월',담당자:'이수현',팀명:'물류팀',채널:'일반도매',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-007',적격증빙:'세금계산서'},
-    {id:uid(),전표유형:'매입전표',입력방식:'파일업로드',전표일자:'2026-01-10',청구일자:'2026-01-10',거래처명:'Lazada Korea',사업자번호:'',계정과목:'판매수수료',공급가액:3200000,부가세:0,합계금액:3200000,적요:'라자다 1월 판매수수료',담당자:'김민지',팀명:'라자다팀',채널:'라자다',업로드기간:'2026-01-01~2026-01-31',전표번호:'VCH-008',적격증빙:'인보이스'},
-    // 직접 입력 — 2월
-    {id:uid(),전표유형:'일반전표',입력방식:'직접입력',전표일자:'2026-02-01',청구일자:'2026-02-01',거래처명:'광교우미뉴브 지식산업센터 관리단',사업자번호:'605-82-88845',계정과목:'건물관리비',공급가액:181818,부가세:18182,합계금액:200000,적요:'주차웹충전 2월',담당자:'최세미',팀명:'경영지원',채널:'공통',업로드기간:'2026-02-01~2026-02-28',전표번호:'VCH-009',적격증빙:'세금계산서'},
-    {id:uid(),전표유형:'매입매출전표',입력방식:'직접입력',전표일자:'2026-02-05',청구일자:'2026-02-05',거래처명:'Shopee Singapore',사업자번호:'',계정과목:'판매수수료',공급가액:5500000,부가세:0,합계금액:5500000,적요:'쇼피 2월 판매수수료 정산',담당자:'김민지',팀명:'쇼피팀',채널:'쇼피',업로드기간:'2026-02-01~2026-02-28',전표번호:'VCH-010',적격증빙:'인보이스'},
-    {id:uid(),전표유형:'매입전표',입력방식:'파일업로드',전표일자:'2026-02-10',청구일자:'2026-02-10',거래처명:'ALI Express Korea',사업자번호:'',계정과목:'광고선전비',공급가액:2800000,부가세:0,합계금액:2800000,적요:'알리익스프레스 2월 광고비',담당자:'박지훈',팀명:'도매팀',채널:'ALI',업로드기간:'2026-02-01~2026-02-28',전표번호:'VCH-011',적격증빙:'인보이스'},
-    {id:uid(),전표유형:'카드전표',입력방식:'파일업로드',전표일자:'2026-02-14',청구일자:'2026-02-25',거래처명:'Amazon.com',사업자번호:'',계정과목:'지급수수료',공급가액:1920000,부가세:0,합계금액:1920000,적요:'아마존 FBA 수수료 2월',담당자:'이수현',팀명:'물류팀',채널:'아마존',업로드기간:'2026-02-01~2026-02-28',전표번호:'VCH-012',적격증빙:'카드매출전표'},
-    {id:uid(),전표유형:'매입전표',입력방식:'파일업로드',전표일자:'2026-02-20',청구일자:'2026-02-20',거래처명:'큐텐 코리아',사업자번호:'220-88-12345',계정과목:'판매수수료',공급가액:980000,부가세:0,합계금액:980000,적요:'큐텐 2월 판매수수료',담당자:'박지훈',팀명:'도매팀',채널:'큐텐',업로드기간:'2026-02-01~2026-02-28',전표번호:'VCH-013',적격증빙:'세금계산서'},
-  ];
-  try{
-    const{error}=await sb.from('vouchers').upsert(simData);
-    if(error)throw error;
-    toast(`시뮬레이션 데이터 ${simData.length}건 삽입 완료!`,'success');
-    await loadVS();
-    renderPage();
-  }catch(e){
-    // 폴백: 메모리에 저장
-    G.vs=[...G.vs,...simData];
-    toast(`시뮬레이션 데이터 ${simData.length}건 (로컬 모드)`,  'success');
-    renderPage();
-  }
-}
-
-// 시뮬레이션 버튼 — 사이드바 하단에 추가
-setTimeout(()=>{
-  const sbBottom=document.querySelector('.sb-bottom');
-  if(sbBottom&&!document.getElementById('sim-btn')){
-    const btn=document.createElement('button');
-    btn.id='sim-btn';
-    btn.className='mgmt-btn';
-    btn.style='margin-top:6px;background:var(--gbg);color:var(--grn)';
-    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 6.5h11M6.5 1v11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>예시 데이터 삽입</span>';
-    btn.onclick=insertSimData;
-    sbBottom.appendChild(btn);
-  }
-},100);
 </script>
 </body>
 </html>
