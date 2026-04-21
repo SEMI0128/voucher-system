@@ -169,7 +169,7 @@ tr:last-child td{border-bottom:none}
     <div class="lock-sub">카드전표 + 매입전표 · 채널별 분석</div>
     <div style="margin-bottom:1.2rem;padding:10px 14px;background:var(--bg2);border-radius:var(--r);font-size:12px;color:var(--text2)">사내 전용 시스템입니다. 접속 암호를 입력해주세요.</div>
     <div class="fg"><label class="fl" style="text-align:left">접속 암호</label>
-      <input type="password" id="site-pw" placeholder="암호 입력">
+      <input type="password" id="site-pw" placeholder="암호 입력" style="background:#fff;border:1.5px solid #ccc;color:#1a1a1a;letter-spacing:.15em">
       <div id="site-pw-err" class="lock-err">암호가 올바르지 않습니다.</div>
     </div>
     <button class="btn btn-p" style="width:100%;justify-content:center;margin-top:4px" onclick="checkSitePw()">접속</button>
@@ -185,6 +185,15 @@ tr:last-child td{border-bottom:none}
       <div class="sb-logo-s">카드 + 매입 · 채널 분석</div>
     </div>
     <div class="sb-nav">
+      <div class="nav-sec">설정</div>
+      <button class="nav-btn" id="nav-profile" onclick="goPage('profile')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="7.5" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="7.5" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+        마스터 관리
+      </button>
+      <button class="nav-btn" id="nav-clients" onclick="goPage('clients')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="5" cy="4.5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M1 12c0-2.2 1.8-4 4-4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="8" y="7" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.5 9v2M9.5 10h2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+        거래처 관리
+      </button>
       <div class="nav-sec">데이터 입력</div>
       <button class="nav-btn on" id="nav-upload" onclick="goPage('upload')">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v9M7 1L3.5 4.5M7 1L10.5 4.5M1 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -260,6 +269,7 @@ tr:last-child td{border-bottom:none}
     </div>
     <div class="mb" id="d-body"></div>
     <div class="mf">
+      <button class="btn btn-danger" id="delete-btn" onclick="deleteVoucher()" style="margin-right:auto">전표 삭제</button>
       <button class="btn" onclick="closeDetail()">닫기</button>
       <button class="btn btn-p" id="save-btn" style="display:none" onclick="saveDetail()">저장</button>
     </div>
@@ -312,13 +322,15 @@ const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 const BUCKET  = 'voucher-files';
 const sb      = supabase.createClient(SB_URL, SB_KEY);
 
-const TM = ['쇼피팀','라자다팀','도매팀','경영지원','물류팀'];
+const TM = ['글로벌1팀','글로벌2팀','글로벌3팀','물류팀','경영지원팀','기획팀','디자인팀'];
 const CLC = {'ALI':'#AD1457','아마존':'#2E7D32','중':'#E65100','라자다':'#1565C0','라쿠텐':'#6A1B9A','쇼피':'#BF360C','큐텐':'#00838F','월마트':'#1A237E','네이버':'#388E3C','쿠팡':'#D84315','카페24':'#6A1B9A','쇼피파이(J)':'#00695C','쇼피파이(G)':'#C62828','엘지유플러스':'#283593','팝업':'#AD1457','일반도매':'#558B2F','공통':'#757575'};
 
 // 계정과목 목록
 const ACCTS = ['811 복리후생비','812 여비교통비','813 접대비','814 통신비','821 보험료','822 차량유지비','824 운반비','826 도서인쇄비','828 포장비','830 소모품비','831 지급수수료','833 광고선전비','834 판매수수료','835 건물관리비','836 전력비','상품','212 비품','131 선급금','미지급금','미지급비용','보통예금','현금','선수금','부가세대급금','부가세예수금','외상매입금','선급비용'];
 
 const PM = {
+  clients: {t:'거래처 관리', s:'일반·카드·금융 거래처를 등록/수정/삭제합니다'},
+  profile: {t:'마스터 관리', s:'소속팀 · 채널 목록을 등록/수정합니다. 수정 시 기존 전표에도 일괄 반영됩니다'},
   upload:  {t:'엑셀 업로드',      s:'카드사 내역 파일을 업로드하세요'},
   general: {t:'일반전표 입력',     s:'차변/대변 자유 입력'},
   trade:   {t:'매입매출전표 입력', s:'세금계산서·인보이스 등 증빙 기반 입력'},
@@ -329,6 +341,11 @@ const PM = {
 
 let G = {
   page:'upload', mgmt:false,
+  profile: {team:'', person:'', channel:''},
+  masterTeams: ['글로벌1팀','글로벌2팀','글로벌3팀','물류팀','경영지원팀','기획팀','디자인팀'],  // 소속팀 마스터
+  masterHistory: [],  // 수정 이력
+  clients: {일반:[], 카드:[], 금융:[]},  // 거래처 데이터 (DB에서 로드)
+  clientsLoaded: false,
   vs:[], hist:[], pend:[],
   cur:null, edit:false,
   uf:'2026-01-01', ut:'2026-01-31',
@@ -371,6 +388,7 @@ document.getElementById('site-pw').focus();
 // 초기화
 // ═══════════════════════════════════════════════════════
 async function init(){
+  loadProfile();     // localStorage에서 기본정보 불러오기 (loadMaster 포함)
   await loadChannels();
   renderPage();
 }
@@ -405,7 +423,9 @@ function goPage(p){
 function renderPage(){
   const el=document.getElementById('content');
   el.innerHTML='<div class="loading"><div class="spin"></div>로딩 중...</div>';
-  if(G.page==='upload')  renderUpload();
+  if(G.page==='clients') renderClients();
+  else if(G.page==='profile') renderProfile();
+  else if(G.page==='upload')  renderUpload();
   else if(G.page==='general') renderEntryForm('general');
   else if(G.page==='trade')   renderEntryForm('trade');
   else if(G.page==='list')    renderList();
@@ -452,29 +472,37 @@ async function loadHist(){
 // 전표번호 채번
 // ═══════════════════════════════════════════════════════
 async function getNextVoucherNo(date, type){
-  // type: 'general' (00001~) or 'trade' (50001~)
+  // type: 'general' (00001~49999) or 'trade' (50001~99999)
   const startSeq = type==='general' ? 1 : 50001;
-  const prefix   = type==='general' ? '' : '';
   try{
-    // upsert로 카운터 증가
-    const{data,error}=await sb.rpc ? null : null; // RPC 없으면 직접 처리
-    // 직접 카운터 조회/업데이트
-    const{data:cnt,error:e1}=await sb.from('voucher_counter').select('last_seq').eq('vdate',date).eq('vtype',type).single();
+    // 1) 현재 카운터 조회
+    const{data:cnt,error:e1}=await sb.from('voucher_counter')
+      .select('id,last_seq').eq('vdate',date).eq('vtype',type).maybeSingle();
     let seq;
-    if(e1 || !cnt){
-      // 첫 번째 전표
+    if(!cnt){
+      // 해당 날짜 첫 번째 전표 → startSeq 부터 시작
       seq = startSeq;
-      await sb.from('voucher_counter').insert({vdate:date,vtype:type,last_seq:seq});
+      const{error:e2}=await sb.from('voucher_counter')
+        .insert({vdate:date,vtype:type,last_seq:seq});
+      if(e2){
+        // 충돌(동시 insert) 시 다시 조회
+        const{data:cnt2}=await sb.from('voucher_counter')
+          .select('id,last_seq').eq('vdate',date).eq('vtype',type).single();
+        seq = (cnt2?.last_seq||startSeq-1)+1;
+        await sb.from('voucher_counter').update({last_seq:seq}).eq('vdate',date).eq('vtype',type);
+      }
     } else {
       seq = cnt.last_seq + 1;
       await sb.from('voucher_counter').update({last_seq:seq}).eq('vdate',date).eq('vtype',type);
     }
+    // 일반전표: 5자리 (00001~49999), 매입매출: 5자리 (50001~99999)
     const seqStr = String(seq).padStart(5,'0');
     return `${date}-${seqStr}`;
   }catch(e){
-    // 폴백: 랜덤 번호
-    const startStr = type==='general'?'0':'5';
-    return `${date}-${startStr}${String(Math.floor(Math.random()*9999)).padStart(4,'0')}`;
+    // 폴백: 타임스탬프 기반
+    const base = type==='general' ? 1 : 50001;
+    const rand = base + Math.floor(Math.random()*100);
+    return `${date}-${String(rand).padStart(5,'0')}`;
   }
 }
 
@@ -489,6 +517,17 @@ function makeAcInput(id, list, placeholder, onSelect){
       onkeydown="acKeydown(event,'${id}')">
     <div class="ac-list" id="ac-${id}"></div>
   </div>`;
+}
+function showAllAc(id, list){
+  // 포커스 시 전체 목록 표시 (입력값 없어도)
+  const inp=document.getElementById(id);
+  const ac=document.getElementById('ac-'+id);
+  if(!inp||!ac)return;
+  const q=inp.value.toLowerCase();
+  const matches=q ? list.filter(x=>x.toLowerCase().includes(q)) : list;
+  if(!matches.length){ac.style.display='none';return;}
+  ac.innerHTML=matches.map(m=>`<div class="ac-item" onmousedown="selectAc('${id}','${m.replace(/'/g,"\'")}')">${m}</div>`).join('');
+  ac.style.display='block';
 }
 function showAc(id, list){
   const inp=document.getElementById(id);
@@ -542,7 +581,7 @@ async function renderUpload(){
   </div>
   <div class="card"><div class="card-t"><span class="sn">1</span>팀 정보 및 전표 유형</div>
     <div class="g2">
-      <div class="fg"><label class="fl">소속 팀</label><select id="up-team"><option value="">-- 팀 선택 --</option>${TM.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">소속 팀</label><select id="up-team"><option value="">-- 팀 선택 --</option>${(G.masterTeams.length?G.masterTeams:TM).map(t=>`<option>${t}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">전표 유형</label><select id="up-type"><option value="card">카드전표</option><option value="buy">매입전표</option></select></div>
     </div>
   </div>
@@ -626,7 +665,7 @@ function renderEntryForm(type){
   G.entryPage=type;
   const isTrade = type==='trade';
   const chOpts = G.channels.map(c=>`<option value="${c}">${c}</option>`).join('');
-  const tmOpts = TM.map(t=>`<option>${t}</option>`).join('');
+  const tmOpts = (G.masterTeams.length ? G.masterTeams : TM).map(t=>`<option ${G.profile.team===t?'selected':''}>${t}</option>`).join('');
 
   document.getElementById('content').innerHTML=`
   <div class="card">
@@ -640,7 +679,7 @@ function renderEntryForm(type){
     <div class="g4">
       <div class="fg"><label class="fl">전표일자 *</label><input type="date" id="e-date" value="${new Date().toISOString().slice(0,10)}"></div>
       <div class="fg"><label class="fl">전표 유형</label><input value="${isTrade?'매입매출전표':'일반전표'}" readonly></div>
-      <div class="fg"><label class="fl">담당자</label><input type="text" id="e-person" placeholder="이름 입력"></div>
+      <div class="fg"><label class="fl">담당자</label><input type="text" id="e-person" value="${G.profile.person||''}" placeholder="이름 입력"></div>
       <div class="fg"><label class="fl">소속 팀</label><select id="e-team">${tmOpts}</select></div>
     </div></div>
 
@@ -649,7 +688,12 @@ function renderEntryForm(type){
     <div class="es"><div class="es-t">거래처 및 증빙</div>
     <div class="g4">
       <div class="fg"><label class="fl">거래처명 *</label>
-        <input type="text" id="e-partner" placeholder="상호명 입력" oninput="fillPartnerToRows(this.value)"></div>
+        <input type="text" id="e-partner" placeholder="상호명 입력" autocomplete="off"
+            oninput="fillPartnerToRows(this.value);showAc('e-partner', getClientNames())"
+            onfocus="showAllAc('e-partner', getClientNames())"
+            onblur="setTimeout(()=>hideAc('e-partner'),200)"
+            onkeydown="acKeydown(event,'e-partner')">
+          <div class="ac-list" id="ac-e-partner"></div></div></div>
       <div class="fg"><label class="fl">사업자번호</label><input type="text" id="e-bizno" placeholder="000-00-00000"></div>
       <div class="fg"><label class="fl">과세 유형</label>
         <select id="e-taxtype" onchange="applyTax()">
@@ -675,11 +719,12 @@ function renderEntryForm(type){
     <div class="g4">
       <div class="fg"><label class="fl">채널</label>
         <div class="ac-wrap">
-          <input type="text" id="e-channel" placeholder="채널 선택 또는 입력" autocomplete="off"
+          <input type="text" id="e-channel" value="${G.profile.channel||''}" placeholder="채널 선택 또는 입력" autocomplete="off"
             oninput="showAc('e-channel',${JSON.stringify(G.channels)})"
+            onfocus="showAllAc('e-channel',${JSON.stringify(G.channels)})"
             onblur="setTimeout(()=>hideAc('e-channel'),200)"
             onkeydown="acKeydown(event,'e-channel')">
-          <div class="ac-list" id="ac-e-channel">
+          <div class="ac-list" id="ac-e-channel" style="display:none">
             ${G.channels.map(c=>`<div class="ac-item" onmousedown="selectAc('e-channel','${c}')">${c}</div>`).join('')}
           </div>
         </div>
@@ -719,17 +764,13 @@ function renderEntryForm(type){
           <th style="min-width:180px">계정과목 *</th>
           <th style="min-width:140px">거래처</th>
           <th style="min-width:140px">적요</th>
-          <th style="width:120px">공급가액</th>
-          <th style="width:90px">부가세</th>
-          <th style="width:120px">합계금액</th>
+          <th style="width:150px">금액</th>
           <th style="width:36px"></th>
         </tr></thead>
         <tbody id="jt-body">${buildEntryRows()}</tbody>
         <tfoot><tr>
           <td colspan="4" style="text-align:right;color:var(--text2)">합계</td>
-          <td id="jt-sum-supply" style="text-align:right;font-family:monospace">0</td>
-          <td id="jt-sum-vat" style="text-align:right;font-family:monospace">0</td>
-          <td id="jt-sum-total" style="text-align:right;font-family:monospace;font-weight:700">0</td>
+          <td id="jt-sum-total" style="text-align:right;font-family:monospace;font-weight:700">0원</td>
           <td></td>
         </tr></tfoot>
       </table>
@@ -744,12 +785,20 @@ function renderEntryForm(type){
 
     <!-- 증빙파일 첨부 -->
     <div class="es"><div class="es-t">증빙파일 첨부</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <label style="cursor:pointer;padding:7px 14px;border:0.5px solid var(--bd2);border-radius:var(--r);font-size:12px;color:var(--text2);display:inline-flex;align-items:center;gap:6px">
-          파일 선택 (PDF, 이미지, Excel 등)
-          <input type="file" id="evid-file" multiple accept="image/*,.pdf,.xlsx,.xls,.docx" style="display:none" onchange="previewEvidFiles(this.files)">
-        </label>
-        <span style="font-size:11px;color:var(--text3)">최대 50MB · 저장 후 업로드됩니다</span>
+      <div id="evid-drop-zone"
+        style="border:1.5px dashed var(--bd2);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:background .15s"
+        onclick="document.getElementById('evid-file').click()"
+        ondragover="event.preventDefault();this.style.background='var(--bbg)';this.style.borderColor='var(--blue)'"
+        ondragleave="this.style.background='';this.style.borderColor=''"
+        ondrop="event.preventDefault();this.style.background='';this.style.borderColor='';handleEvidDrop(event.dataTransfer.files)">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2v12M10 2L6 6M10 2l4 4M3 16h14" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text2)">파일 선택 또는 여기에 드래그&드롭</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">PDF, 이미지, Excel, Word 등 · 최대 50MB · 저장 후 업로드</div>
+          </div>
+          <input type="file" id="evid-file" multiple accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none" onchange="previewEvidFiles(this.files)">
+        </div>
       </div>
       <div id="evid-preview" style="margin-top:8px"></div>
     </div>
@@ -797,9 +846,7 @@ function buildEntryRows(){
       </td>
       <td><input type="text" value="${row.partner||''}" placeholder="거래처" style="width:100%" onchange="updateRow('${row.id}','partner',this.value)"></td>
       <td><input type="text" value="${row.memo||''}" placeholder="적요" style="width:100%" onchange="updateRow('${row.id}','memo',this.value)"></td>
-      <td><input type="number" value="${row.amt||''}" placeholder="0" style="width:100%;text-align:right" oninput="updateRow('${row.id}','amt',this.value);recalcEntry()"></td>
-      <td><input type="number" value="${row.vat||''}" placeholder="0" style="width:100%;text-align:right" oninput="updateRow('${row.id}','vat',this.value);recalcEntry()"></td>
-      <td id="rowtotal-${row.id}" style="text-align:right;font-family:monospace;font-size:12px;font-weight:600;padding:4px 8px">${fmt(Number(row.amt||0)+Number(row.vat||0))}원</td>
+      <td><input type="number" value="${row.amt||''}" placeholder="0" style="width:140px;text-align:right;font-weight:600" oninput="updateRow('${row.id}','amt',this.value);recalcEntry()"></td>
       <td><button class="del-row" onclick="delRow('${row.id}')">✕</button></td>
     </tr>`).join('');
 }
@@ -813,7 +860,7 @@ function addRow(gubun){
   recalcEntry();
 }
 function delRow(id){ if(G.eRows.length<=2){toast('최소 2행이 필요합니다.','info');return;} G.eRows=G.eRows.filter(r=>r.id!==id); const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows(); recalcEntry(); }
-function updateRow(id,field,val){ const r=G.eRows.find(x=>x.id===id); if(r){r[field]=(field==='amt'||field==='vat')?pn(val):val;} if(field==='acct'&&document.getElementById('acct-'+id)){document.getElementById('acct-'+id).value=val;} if(field==='amt'||field==='vat'){const td=document.getElementById('rowtotal-'+id);if(td)td.textContent=fmt(Number(r.amt||0)+Number(r.vat||0))+'원';} }
+function updateRow(id,field,val){ const r=G.eRows.find(x=>x.id===id); if(r){r[field]=(field==='amt'||field==='vat')?pn(val):val;} if(field==='acct'&&document.getElementById('acct-'+id)){document.getElementById('acct-'+id).value=val;} }
 
 function fillMemoToRows(){
   const memo=document.getElementById('e-memo')?.value||'';
@@ -852,15 +899,9 @@ function toggleEmpOutDate(){ const t=document.getElementById('e-emp-out-type')?.
 function recalcEntry(){
   const debit=G.eRows.filter(r=>r.gubun==='차변').reduce((s,r)=>s+pn(r.amt)+pn(r.vat),0);
   const credit=G.eRows.filter(r=>r.gubun==='대변').reduce((s,r)=>s+pn(r.amt)+pn(r.vat),0);
-  const supply=G.eRows.reduce((s,r)=>s+pn(r.amt),0);
-  const vat=G.eRows.reduce((s,r)=>s+pn(r.vat),0);
-  const total=supply+vat;
+  const total=G.eRows.reduce((s,r)=>s+pn(r.amt),0);
   const bal=document.getElementById('entry-balance');
-  const ss=document.getElementById('jt-sum-supply');
-  const sv=document.getElementById('jt-sum-vat');
   const st=document.getElementById('jt-sum-total');
-  if(ss)ss.textContent=fmt(supply)+'원';
-  if(sv)sv.textContent=fmt(vat)+'원';
   if(st)st.textContent=fmt(total)+'원';
   if(bal){
     const diff=debit-credit;
@@ -872,15 +913,35 @@ function recalcEntry(){
   if(totalAmtEl&&G.entryPage==='general') totalAmtEl; // general은 분개에서만
 }
 
+function handleEvidDrop(fileList){
+  // 드래그&드롭으로 파일 추가
+  if(!fileList||!fileList.length) return;
+  // 기존 파일과 합치기
+  const existing = window._evidFiles || [];
+  const newFiles = Array.from(fileList);
+  window._evidFiles = [...existing, ...newFiles];
+  previewEvidFiles(window._evidFiles);
+  toast(newFiles.length + '개 파일이 추가됐습니다.', 'info');
+}
 function previewEvidFiles(files){
   const prev=document.getElementById('evid-preview');
   if(!prev)return;
   const list=Array.from(files);
-  prev.innerHTML=list.map(f=>`<div class="fi" style="margin-bottom:4px">
-    <div class="fic ${fe(f.name)}">${f.name.split('.').pop().toUpperCase().slice(0,4)}</div>
-    <div class="fn"><div class="fn-n">${f.name}</div><div class="fn-s">${fs(f.size)}</div></div>
-    <span class="badge" style="background:var(--gbg);color:var(--grn)">저장 대기</span>
-  </div>`).join('');
+  // input 파일 변경 시 window._evidFiles도 동기화
+  if(!(files instanceof Array)) window._evidFiles = list;
+  prev.innerHTML=list.length
+    ? `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">${list.length}개 파일 첨부 대기 중</div>`
+      + list.map((f,i)=>`<div class="fi" style="margin-bottom:4px">
+        <div class="fic ${fe(f.name)}">${f.name.split('.').pop().toUpperCase().slice(0,4)}</div>
+        <div class="fn"><div class="fn-n">${f.name}</div><div class="fn-s">${fs(f.size)}</div></div>
+        <span class="badge" style="background:var(--gbg);color:var(--grn)">저장 대기</span>
+        <button class="btn btn-sm" style="border-color:var(--red);color:var(--red)" onclick="removeEvidFile(${i})">제거</button>
+      </div>`).join('')
+    : '';
+}
+function removeEvidFile(idx){
+  window._evidFiles = (window._evidFiles||[]).filter((_,i)=>i!==idx);
+  previewEvidFiles(window._evidFiles);
 }
 
 function previewEntry(){
@@ -990,9 +1051,9 @@ async function doSaveEntry(){
     if(error)throw error;
 
     // 증빙파일 업로드
-    const fileInput=document.getElementById('evid-file');
-    if(fileInput && fileInput.files.length>0){
-      for(const f of Array.from(fileInput.files)){
+    const saveFiles = window._evidFiles || (document.getElementById('evid-file')?.files ? Array.from(document.getElementById('evid-file').files) : []);
+    if(saveFiles.length>0){
+      for(const f of saveFiles){
         const path=`${voucher.id}/${Date.now()}_${f.name}`;
         await sb.storage.from(BUCKET).upload(path,f,{upsert:true});
         await sb.from('voucher_files').insert({voucher_id:voucher.id,file_name:f.name,file_path:path,file_type:f.type,file_size:f.size,uploaded_by:p.person||'직접입력'});
@@ -1000,6 +1061,7 @@ async function doSaveEntry(){
     }
 
     closeConfirm();
+    window._evidFiles = [];  // 증빙파일 초기화
     toast(`전표번호 ${vno} 저장 완료!`,'success');
     initEntryRows();
     G.ePending=null;
@@ -1135,6 +1197,522 @@ function exportExcel(){
 }
 
 // ── CSV 내보내기 ──
+// ═══════════════════════════════════════════════════════
+// 마스터 관리 탭 (소속팀 + 채널 목록 관리)
+// ═══════════════════════════════════════════════════════
+function renderProfile(){
+  const teamRows = G.masterTeams.map((t,i)=>`
+    <tr>
+      <td style="font-size:12px;padding:6px 10px">${i+1}</td>
+      <td style="padding:6px 10px"><strong>${t}</strong></td>
+      <td style="font-size:11px;color:var(--text2);padding:6px 10px">${G.vs.filter(v=>v.팀명===t).length}건</td>
+      <td style="padding:4px 8px">
+        <button class="btn btn-sm" onclick="startRenameTeam(${i})">수정</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTeam(${i})" style="margin-left:4px">삭제</button>
+      </td>
+    </tr>`).join('');
+
+  const chRows = G.channels.map((c,i)=>`
+    <tr>
+      <td style="font-size:12px;padding:6px 10px">${i+1}</td>
+      <td style="padding:6px 10px"><span class="badge" style="background:${(CLC[c]||'#888')}22;color:${CLC[c]||'#555'}">${c}</span></td>
+      <td style="font-size:11px;color:var(--text2);padding:6px 10px">${G.vs.filter(v=>v.채널===c).length}건</td>
+      <td style="padding:4px 8px">
+        <button class="btn btn-sm" onclick="startRenameCh(${i})">수정</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCh(${i})" style="margin-left:4px">삭제</button>
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('content').innerHTML=`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+
+    <!-- 소속팀 관리 -->
+    <div class="card">
+      <div class="card-t">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="5" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M1 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M10 8c1.7 0 3 1.3 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        소속팀 목록
+        <span style="margin-left:auto;font-size:11px;color:var(--text3);font-weight:400">${G.masterTeams.length}개 팀</span>
+      </div>
+      <div class="tw" style="margin-bottom:12px">
+        <table>
+          <thead><tr><th style="width:36px">No</th><th>팀명</th><th>전표수</th><th style="width:120px">관리</th></tr></thead>
+          <tbody>${teamRows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text3)">등록된 팀이 없습니다.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="new-team-inp" placeholder="새 팀명 입력" style="flex:1">
+        <button class="btn btn-grn" onclick="addTeam()">추가</button>
+      </div>
+      <div id="team-rename-box" style="display:none;margin-top:10px;padding:10px;background:var(--bbg);border-radius:var(--r)">
+        <div style="font-size:12px;color:var(--btx);margin-bottom:6px;font-weight:500">팀명 수정 — 기존 전표에도 일괄 반영됩니다</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--text2);white-space:nowrap">수정 전:</span>
+          <input type="text" id="team-old-val" readonly style="background:var(--bg3);font-weight:600">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--text2);white-space:nowrap">수정 후:</span>
+          <input type="text" id="team-new-val" placeholder="새 팀명 입력">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="cancelRename('team')">취소</button>
+          <button class="btn btn-sm btn-p" onclick="confirmRenameTeam()">일괄 변경 적용</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 채널 관리 -->
+    <div class="card">
+      <div class="card-t">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/><path d="M7 1.5V7l3.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        채널 목록
+        <span style="margin-left:auto;font-size:11px;color:var(--text3);font-weight:400">${G.channels.length}개 채널</span>
+      </div>
+      <div class="tw" style="margin-bottom:12px">
+        <table>
+          <thead><tr><th style="width:36px">No</th><th>채널명</th><th>전표수</th><th style="width:120px">관리</th></tr></thead>
+          <tbody>${chRows||'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text3)">등록된 채널이 없습니다.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="new-ch-inp2" placeholder="새 채널명 입력" style="flex:1">
+        <button class="btn btn-grn" onclick="addChFromMaster()">추가</button>
+      </div>
+      <div id="ch-rename-box" style="display:none;margin-top:10px;padding:10px;background:var(--bbg);border-radius:var(--r)">
+        <div style="font-size:12px;color:var(--btx);margin-bottom:6px;font-weight:500">채널명 수정 — 기존 전표에도 일괄 반영됩니다</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--text2);white-space:nowrap">수정 전:</span>
+          <input type="text" id="ch-old-val" readonly style="background:var(--bg3);font-weight:600">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--text2);white-space:nowrap">수정 후:</span>
+          <input type="text" id="ch-new-val" placeholder="새 채널명 입력">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="cancelRename('ch')">취소</button>
+          <button class="btn btn-sm btn-p" onclick="confirmRenameCh()">일괄 변경 적용</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 변경 이력 -->
+  <div class="card" style="margin-top:4px">
+    <div class="card-t" style="margin-bottom:10px">최근 변경 이력</div>
+    <div id="master-history">
+      ${G.masterHistory.length
+        ? G.masterHistory.slice(-10).reverse().map(h=>`
+          <div class="hi">
+            <span style="font-size:11px;color:var(--text3)">${h.time}</span>
+            <span class="badge ${h.type==='team'?'b-card':'b-buy'}">${h.type==='team'?'소속팀':'채널'}</span>
+            <span style="font-size:12px">"${h.oldVal}"</span>
+            <span style="color:var(--text3)">→</span>
+            <span style="font-size:12px;font-weight:600">"${h.newVal}"</span>
+            <span style="font-size:11px;color:var(--text2)">(${h.count}건 반영)</span>
+          </div>`).join('')
+        : '<div style="font-size:12px;color:var(--text3)">변경 이력이 없습니다.</div>'}
+    </div>
+  </div>`;
+}
+
+// ── 소속팀 관리 ──
+function addTeam(){
+  const val=document.getElementById('new-team-inp')?.value?.trim();
+  if(!val){toast('팀명을 입력해주세요.','info');return;}
+  if(G.masterTeams.includes(val)){toast('이미 존재하는 팀명입니다.','info');return;}
+  G.masterTeams.push(val);
+  saveMaster();
+  toast(`'${val}' 팀이 추가됐습니다.`,'success');
+  renderProfile();
+}
+
+function deleteTeam(idx){
+  const name=G.masterTeams[idx];
+  const cnt=G.vs.filter(v=>v.팀명===name).length;
+  if(!confirm(`'${name}' 팀을 삭제하시겠습니까?\n※ 기존 전표 ${cnt}건의 팀명은 변경되지 않습니다.`))return;
+  G.masterTeams.splice(idx,1);
+  saveMaster();
+  toast(`'${name}' 팀이 삭제됐습니다.`,'info');
+  renderProfile();
+}
+
+let _renameTeamIdx = -1;
+function startRenameTeam(idx){
+  _renameTeamIdx=idx;
+  const box=document.getElementById('team-rename-box');
+  if(box)box.style.display='block';
+  const oldEl=document.getElementById('team-old-val');
+  const newEl=document.getElementById('team-new-val');
+  if(oldEl)oldEl.value=G.masterTeams[idx];
+  if(newEl){newEl.value='';newEl.focus();}
+}
+
+async function confirmRenameTeam(){
+  const oldVal=document.getElementById('team-old-val')?.value||'';
+  const newVal=document.getElementById('team-new-val')?.value?.trim()||'';
+  if(!newVal){toast('새 팀명을 입력해주세요.','info');return;}
+  if(oldVal===newVal){cancelRename('team');return;}
+  if(G.masterTeams.includes(newVal)){toast('이미 존재하는 팀명입니다.','info');return;}
+  const btn=document.querySelector('[onclick="confirmRenameTeam()"]');
+  if(btn){btn.disabled=true;btn.textContent='적용 중...';}
+  try{
+    // Supabase에서 일괄 업데이트
+    const{error}=await sb.from('vouchers').update({팀명:newVal}).eq('팀명',oldVal);
+    if(error)throw error;
+    const cnt=G.vs.filter(v=>v.팀명===oldVal).length;
+    // 로컬 데이터도 업데이트
+    G.vs.forEach(v=>{if(v.팀명===oldVal)v.팀명=newVal;});
+    // masterTeams 업데이트
+    const idx=G.masterTeams.indexOf(oldVal);
+    if(idx>=0)G.masterTeams[idx]=newVal;
+    saveMaster();
+    // 이력 추가
+    G.masterHistory.push({time:new Date().toLocaleString('ko-KR'),type:'team',oldVal,newVal,count:cnt});
+    toast(`팀명 변경 완료: '${oldVal}' → '${newVal}' (${cnt}건 반영)`,'success');
+    cancelRename('team');
+    renderProfile();
+  }catch(e){toast('변경 실패: '+e.message,'error');if(btn){btn.disabled=false;btn.textContent='일괄 변경 적용';}}
+}
+
+// ── 채널 관리 ──
+async function addChFromMaster(){
+  const val=document.getElementById('new-ch-inp2')?.value?.trim();
+  if(!val){toast('채널명을 입력해주세요.','info');return;}
+  if(G.channels.includes(val)){toast('이미 존재하는 채널명입니다.','info');return;}
+  try{
+    await sb.from('channel_list').insert({channel_name:val,is_default:false});
+    G.channels.push(val);
+    toast(`'${val}' 채널이 추가됐습니다.`,'success');
+    renderProfile();
+  }catch(e){toast('추가 실패: '+e.message,'error');}
+}
+
+async function deleteCh(idx){
+  const name=G.channels[idx];
+  const cnt=G.vs.filter(v=>v.채널===name).length;
+  if(!confirm(`'${name}' 채널을 삭제하시겠습니까?\n※ 기존 전표 ${cnt}건의 채널은 변경되지 않습니다.`))return;
+  try{
+    await sb.from('channel_list').delete().eq('channel_name',name);
+    G.channels.splice(idx,1);
+    toast(`'${name}' 채널이 삭제됐습니다.`,'info');
+    renderProfile();
+  }catch(e){toast('삭제 실패: '+e.message,'error');}
+}
+
+let _renameChIdx = -1;
+function startRenameCh(idx){
+  _renameChIdx=idx;
+  const box=document.getElementById('ch-rename-box');
+  if(box)box.style.display='block';
+  const oldEl=document.getElementById('ch-old-val');
+  const newEl=document.getElementById('ch-new-val');
+  if(oldEl)oldEl.value=G.channels[idx];
+  if(newEl){newEl.value='';newEl.focus();}
+}
+
+async function confirmRenameCh(){
+  const oldVal=document.getElementById('ch-old-val')?.value||'';
+  const newVal=document.getElementById('ch-new-val')?.value?.trim()||'';
+  if(!newVal){toast('새 채널명을 입력해주세요.','info');return;}
+  if(oldVal===newVal){cancelRename('ch');return;}
+  if(G.channels.includes(newVal)){toast('이미 존재하는 채널명입니다.','info');return;}
+  const btn=document.querySelector('[onclick="confirmRenameCh()"]');
+  if(btn){btn.disabled=true;btn.textContent='적용 중...';}
+  try{
+    // 1) 전표 일괄 업데이트
+    const{error:e1}=await sb.from('vouchers').update({채널:newVal}).eq('채널',oldVal);
+    if(e1)throw e1;
+    // 2) channel_list 업데이트
+    const{error:e2}=await sb.from('channel_list').update({channel_name:newVal}).eq('channel_name',oldVal);
+    if(e2)throw e2;
+    const cnt=G.vs.filter(v=>v.채널===oldVal).length;
+    // 3) 로컬 데이터 업데이트
+    G.vs.forEach(v=>{if(v.채널===oldVal)v.채널=newVal;});
+    const cidx=G.channels.indexOf(oldVal);
+    if(cidx>=0)G.channels[cidx]=newVal;
+    // 4) CLC 컬러맵 업데이트
+    if(CLC[oldVal]){CLC[newVal]=CLC[oldVal];delete CLC[oldVal];}
+    // 5) 이력 추가
+    G.masterHistory.push({time:new Date().toLocaleString('ko-KR'),type:'ch',oldVal,newVal,count:cnt});
+    toast(`채널 변경 완료: '${oldVal}' → '${newVal}' (${cnt}건 반영)`,'success');
+    cancelRename('ch');
+    renderProfile();
+  }catch(e){toast('변경 실패: '+e.message,'error');if(btn){btn.disabled=false;btn.textContent='일괄 변경 적용';}}
+}
+
+function cancelRename(type){
+  const box=document.getElementById(type+'-rename-box');
+  if(box)box.style.display='none';
+}
+
+
+// ═══════════════════════════════════════════════════════
+// 거래처 관리 탭
+// ═══════════════════════════════════════════════════════
+async function loadClients(){
+  if(G.clientsLoaded) return;
+  try{
+    const [{data:gen},{data:card},{data:fin}] = await Promise.all([
+      sb.from('clients_general').select('*').order('code'),
+      sb.from('clients_card').select('*').order('code'),
+      sb.from('clients_finance').select('*').order('code'),
+    ]);
+    G.clients.일반 = gen||[];
+    G.clients.카드 = card||[];
+    G.clients.금융 = fin||[];
+    G.clientsLoaded = true;
+  }catch(e){ toast('거래처 로드 실패: '+e.message,'error'); }
+}
+
+let _clientTab = '일반';      // 현재 탭
+let _clientEdit = null;       // 수정 중인 row
+let _clientSearch = '';       // 검색어
+
+async function renderClients(){
+  document.getElementById('content').innerHTML = '<div class="loading"><div class="spin"></div>거래처 로딩 중...</div>';
+  await loadClients();
+  _renderClientsUI();
+}
+
+function _renderClientsUI(){
+  const tabs = ['일반','카드','금융'];
+  const counts = tabs.map(t => G.clients[t].length);
+
+  // 탭 헤더
+  const tabHtml = tabs.map((t,i) => `
+    <button onclick="_setClientTab('${t}')" style="padding:8px 18px;border:none;cursor:pointer;font-size:13px;font-family:inherit;font-weight:${_clientTab===t?'600':'400'};
+      color:${_clientTab===t?'var(--blue)':'var(--text2)'};background:var(--bg);
+      border-bottom:${_clientTab===t?'2px solid var(--blue)':'2px solid transparent'};transition:all .15s">
+      ${t} 거래처 <span style="font-size:11px;color:var(--text3);font-weight:400">(${counts[i]})</span>
+    </button>`).join('');
+
+  // 현재 탭 데이터
+  const rows = _getFilteredClients();
+
+  // 컬럼 정의
+  const cols = _clientCols(_clientTab);
+
+  // 테이블 행
+  const tableRows = rows.slice(0, 200).map(r => {
+    const isEditing = _clientEdit && _clientEdit.id === r.id;
+    if(isEditing) return _buildEditRow(r, cols);
+    return _buildViewRow(r, cols);
+  }).join('');
+
+  const moreMsg = rows.length > 200
+    ? `<tr><td colspan="${cols.length+1}" style="text-align:center;padding:10px;color:var(--text3);font-size:12px">검색으로 좁혀주세요 — 전체 ${rows.length}건 중 200건 표시</td></tr>` : '';
+
+  document.getElementById('content').innerHTML = `
+  <div class="card" style="padding:0;overflow:hidden">
+    <!-- 탭 -->
+    <div style="display:flex;border-bottom:0.5px solid var(--bd);padding:0 4px;background:var(--bg)">
+      ${tabHtml}
+    </div>
+
+    <!-- 툴바 -->
+    <div style="display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:0.5px solid var(--bd);flex-wrap:wrap">
+      <input type="text" placeholder="거래처명·코드·사업자번호 검색..." value="${_clientSearch}"
+        oninput="_clientSearch=this.value;_renderClientsUI()" style="width:240px;font-size:12px">
+      <span style="font-size:12px;color:var(--text3)">${rows.length}건</span>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-grn btn-sm" onclick="_startAddClient()">+ 거래처 추가</button>
+        <button class="btn btn-sm" onclick="_reloadClients()">새로고침</button>
+      </div>
+    </div>
+
+    <!-- 추가 폼 -->
+    <div id="client-add-form" style="display:none;padding:14px 16px;background:var(--bbg);border-bottom:0.5px solid var(--bd)">
+      <div style="font-size:12px;font-weight:600;color:var(--btx);margin-bottom:10px">신규 ${_clientTab} 거래처 추가</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        ${_buildAddFormInputs(_clientTab)}
+        <button class="btn btn-sm btn-p" onclick="_saveNewClient()">저장</button>
+        <button class="btn btn-sm" onclick="document.getElementById('client-add-form').style.display='none'">취소</button>
+      </div>
+    </div>
+
+    <!-- 테이블 -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:var(--bg2)">
+            ${cols.map(c=>`<th style="padding:8px 10px;font-weight:500;color:var(--text2);text-align:left;border-bottom:0.5px solid var(--bd);white-space:nowrap">${c.label}</th>`).join('')}
+            <th style="padding:8px 10px;font-weight:500;color:var(--text2);text-align:center;border-bottom:0.5px solid var(--bd);width:100px">관리</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}${moreMsg}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function _getFilteredClients(){
+  const q = _clientSearch.toLowerCase().trim();
+  if(!q) return G.clients[_clientTab];
+  return G.clients[_clientTab].filter(r => {
+    const name = (r.name||'').toLowerCase();
+    const code = (r.code||'').toLowerCase();
+    const biz  = (r.biz_no||r.card_no||r.acct_no||'').toLowerCase();
+    return name.includes(q) || code.includes(q) || biz.includes(q);
+  });
+}
+
+function _clientCols(tab){
+  if(tab==='일반') return [
+    {key:'code',    label:'Code',    w:'80px'},
+    {key:'name',    label:'거래처명',  w:'220px'},
+    {key:'biz_no',  label:'사업자번호', w:'130px'},
+    {key:'rep',     label:'대표자',   w:'100px'},
+    {key:'gubun',   label:'구분',    w:'70px'},
+    {key:'use_yn',  label:'사용',    w:'55px'},
+    {key:'memo',    label:'메모',    w:'160px'},
+  ];
+  if(tab==='카드') return [
+    {key:'code',    label:'Code',      w:'80px'},
+    {key:'name',    label:'카드(사)명',   w:'220px'},
+    {key:'card_no', label:'카드번호',    w:'180px'},
+    {key:'gubun',   label:'구분',      w:'70px'},
+    {key:'use_yn',  label:'사용',      w:'55px'},
+    {key:'memo',    label:'메모',      w:'160px'},
+  ];
+  return [ // 금융
+    {key:'code',    label:'Code',    w:'80px'},
+    {key:'name',    label:'금융기관명', w:'200px'},
+    {key:'acct_no', label:'계좌번호',  w:'180px'},
+    {key:'gubun',   label:'구분',    w:'70px'},
+    {key:'use_yn',  label:'사용',    w:'55px'},
+    {key:'memo',    label:'메모',    w:'160px'},
+  ];
+}
+
+function _buildViewRow(r, cols){
+  const useColor = r.use_yn==='X' ? 'color:var(--red)' : 'color:var(--grn)';
+  const rowBg = r.use_yn==='X' ? 'background:#fff8f8' : '';
+  return `<tr style="${rowBg};border-bottom:0.5px solid var(--bd)" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='${rowBg}'">
+    ${cols.map(c => {
+      if(c.key==='use_yn') return `<td style="padding:6px 10px"><span style="font-size:11px;font-weight:600;${useColor}">${r.use_yn||'O'}</span></td>`;
+      if(c.key==='name')   return `<td style="padding:6px 10px;font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r[c.key]||''}">${r[c.key]||''}</td>`;
+      return `<td style="padding:6px 10px;color:var(--text2);max-width:${c.w};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c.key]||''}</td>`;
+    }).join('')}
+    <td style="padding:4px 8px;text-align:center">
+      <button class="btn btn-sm" onclick="_startEditClient(${r.id})" style="margin-right:3px">수정</button>
+      <button class="btn btn-sm btn-danger" onclick="_deleteClient(${r.id})">삭제</button>
+    </td>
+  </tr>`;
+}
+
+function _buildEditRow(r, cols){
+  const GUBUN_일반 = ['전체','매입','매출'];
+  const GUBUN_카드 = ['매입','매출'];
+  const GUBUN_금융 = ['일반','차입','투자'];
+  const gubunList = _clientTab==='일반'?GUBUN_일반:_clientTab==='카드'?GUBUN_카드:GUBUN_금융;
+  return `<tr style="background:var(--bbg);border-bottom:0.5px solid var(--blue)">
+    ${cols.map(c => {
+      const val = r[c.key]||'';
+      if(c.key==='gubun') return `<td style="padding:4px 6px"><select id="ec-${c.key}" style="font-size:11px;padding:3px 5px;width:70px">${gubunList.map(g=>`<option ${val===g?'selected':''}>${g}</option>`).join('')}</select></td>`;
+      if(c.key==='use_yn') return `<td style="padding:4px 6px"><select id="ec-${c.key}" style="font-size:11px;padding:3px 5px;width:55px"><option ${val==='O'?'selected':''}>O</option><option ${val==='X'?'selected':''}>X</option></select></td>`;
+      return `<td style="padding:4px 6px"><input type="text" id="ec-${c.key}" value="${String(val).replace(/"/g,'&quot;')}" style="font-size:11px;padding:3px 6px;width:100%;min-width:60px"></td>`;
+    }).join('')}
+    <td style="padding:4px 8px;text-align:center">
+      <button class="btn btn-sm btn-p" onclick="_saveEditClient(${r.id})" style="margin-right:3px">저장</button>
+      <button class="btn btn-sm" onclick="_cancelEdit()">취소</button>
+    </td>
+  </tr>`;
+}
+
+function _buildAddFormInputs(tab){
+  if(tab==='일반') return `
+    <div class="fg" style="margin:0"><input type="text" id="nadd-code" placeholder="Code" style="width:80px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-name" placeholder="거래처명 *" style="width:180px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-biz_no" placeholder="사업자번호" style="width:130px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-rep" placeholder="대표자" style="width:90px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><select id="nadd-gubun" style="font-size:12px;padding:8px 6px;width:80px"><option>전체</option><option>매입</option><option>매출</option></select></div>`;
+  if(tab==='카드') return `
+    <div class="fg" style="margin:0"><input type="text" id="nadd-code" placeholder="Code" style="width:80px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-name" placeholder="카드(사)명 *" style="width:200px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-card_no" placeholder="카드번호" style="width:180px;font-size:12px"></div>`;
+  return `
+    <div class="fg" style="margin:0"><input type="text" id="nadd-code" placeholder="Code" style="width:80px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-name" placeholder="금융기관명 *" style="width:180px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><input type="text" id="nadd-acct_no" placeholder="계좌번호" style="width:180px;font-size:12px"></div>
+    <div class="fg" style="margin:0"><select id="nadd-gubun" style="font-size:12px;padding:8px 6px;width:80px"><option>일반</option><option>차입</option><option>투자</option></select></div>`;
+}
+
+function _setClientTab(tab){ _clientTab=tab; _clientEdit=null; _clientSearch=''; _renderClientsUI(); }
+function _reloadClients(){ G.clientsLoaded=false; renderClients(); }
+function _startAddClient(){ document.getElementById('client-add-form').style.display='block'; document.getElementById('nadd-name')?.focus(); }
+function _startEditClient(id){ _clientEdit = G.clients[_clientTab].find(r=>r.id===id)||null; _renderClientsUI(); setTimeout(()=>document.getElementById('ec-name')?.focus(),50); }
+function _cancelEdit(){ _clientEdit=null; _renderClientsUI(); }
+
+function _getTableName(){ return _clientTab==='일반'?'clients_general':_clientTab==='카드'?'clients_card':'clients_finance'; }
+
+async function _saveNewClient(){
+  const name = document.getElementById('nadd-name')?.value?.trim();
+  if(!name){ toast('거래처명을 입력해주세요.','info'); return; }
+  const data = {
+    code:   document.getElementById('nadd-code')?.value?.trim()||'',
+    name,
+    gubun:  document.getElementById('nadd-gubun')?.value||'전체',
+    use_yn: 'O',
+  };
+  if(_clientTab==='일반')  { data.biz_no=document.getElementById('nadd-biz_no')?.value?.trim()||''; data.rep=document.getElementById('nadd-rep')?.value?.trim()||''; }
+  if(_clientTab==='카드')  { data.card_no=document.getElementById('nadd-card_no')?.value?.trim()||''; data.gubun='매입'; }
+  if(_clientTab==='금융')  { data.acct_no=document.getElementById('nadd-acct_no')?.value?.trim()||''; }
+  try{
+    const{data:inserted,error}=await sb.from(_getTableName()).insert(data).select().single();
+    if(error)throw error;
+    G.clients[_clientTab].unshift(inserted);
+    toast(`'${name}' 등록 완료`,'success');
+    document.getElementById('client-add-form').style.display='none';
+    _renderClientsUI();
+  }catch(e){ toast('저장 실패: '+e.message,'error'); }
+}
+
+async function _saveEditClient(id){
+  const cols = _clientCols(_clientTab);
+  const upd = {};
+  cols.forEach(c=>{ const el=document.getElementById('ec-'+c.key); if(el) upd[c.key]=el.value; });
+  try{
+    const{error}=await sb.from(_getTableName()).update({...upd, updated_at:new Date().toISOString()}).eq('id',id);
+    if(error)throw error;
+    const idx=G.clients[_clientTab].findIndex(r=>r.id===id);
+    if(idx>=0) G.clients[_clientTab][idx]={...G.clients[_clientTab][idx],...upd};
+    toast('수정 완료','success'); _clientEdit=null; _renderClientsUI();
+  }catch(e){ toast('수정 실패: '+e.message,'error'); }
+}
+
+async function _deleteClient(id){
+  const r = G.clients[_clientTab].find(x=>x.id===id);
+  if(!r) return;
+  if(!confirm(`'${r.name}' 거래처를 삭제하시겠습니까?`)) return;
+  try{
+    const{error}=await sb.from(_getTableName()).delete().eq('id',id);
+    if(error)throw error;
+    G.clients[_clientTab]=G.clients[_clientTab].filter(x=>x.id!==id);
+    toast(`'${r.name}' 삭제 완료`,'info'); _renderClientsUI();
+  }catch(e){ toast('삭제 실패: '+e.message,'error'); }
+}
+
+// 전표 입력 시 거래처명 자동완성에 clients_general 반영
+function getClientNames(){
+  return G.clients.일반.filter(r=>r.use_yn!=='X').map(r=>r.name);
+}
+
+// 마스터 데이터 저장 (localStorage)
+function saveMaster(){
+  try{localStorage.setItem('vs_master_teams',JSON.stringify(G.masterTeams));}catch{}
+}
+function loadMaster(){
+  try{
+    const saved=localStorage.getItem('vs_master_teams');
+    if(saved)G.masterTeams=JSON.parse(saved);
+  }catch{}
+}
+
+// 기존 saveProfile/clearProfile/loadProfile 호환 유지
+function saveProfile(){}
+function clearProfile(){}
+function loadProfile(){ loadMaster(); }
+
 function exportCSV(){
   if(!G.vs.length){toast('데이터가 없습니다.','info');return;}
   const h=['전표유형','전표일자','팀명','채널','거래처명','계정과목','공급가액','부가세','합계금액','적요','담당자','전표번호'];
@@ -1184,7 +1762,7 @@ function renderDetailBody(r,em){
   </div></div>
   ${jHtml}
   <div class="es"><div class="es-t">채널 귀속</div><div class="g2" style="gap:10px">
-    <div class="fg"><label class="fl">팀명</label>${(em&&G.mgmt)?`<select id="e-팀명">${TM.map(t=>`<option ${r.팀명===t?'selected':''}>${t}</option>`).join('')}</select>`:`<input value="${r.팀명||''}" readonly>`}</div>
+    <div class="fg"><label class="fl">팀명</label>${(em&&G.mgmt)?`<select id="e-팀명">${(G.masterTeams.length?G.masterTeams:TM).map(t=>`<option ${r.팀명===t?'selected':''}>${t}</option>`).join('')}</select>`:`<input value="${r.팀명||''}" readonly>`}</div>
     <div class="fg"><label class="fl">채널</label>${(em&&G.mgmt)?`<div class="ac-wrap"><input type="text" id="e-채널" value="${r.채널||''}" autocomplete="off" oninput="showAc('e-채널',${JSON.stringify(G.channels)})" onblur="setTimeout(()=>hideAc('e-채널'),200)"><div class="ac-list" id="ac-e-채널"></div></div>`:`<div style="padding-top:4px">${chB(r.채널)}${!G.mgmt?'<span style="font-size:11px;color:var(--text3);margin-left:8px">경영지원팀만 수정</span>':''}</div>`}</div>
   </div></div>
   <div class="es"><div class="es-t">EMP 입고 / 반출</div><div class="g2" style="gap:10px">
@@ -1220,6 +1798,28 @@ async function saveDetail(){
     renderDetailBody(G.cur,false);if(G.page==='list')applyF();
   }catch(e){toast('저장 실패: '+e.message,'error');sb2.disabled=false;sb2.textContent='저장';}
 }
+async function deleteVoucher(){
+  const r=G.cur; if(!r)return;
+  if(!confirm(`전표번호 ${r.전표번호||r.id}\n거래처: ${r.거래처명||''}\n금액: ${fmt(r.합계금액)}원\n\n이 전표를 삭제하시겠습니까?\n삭제 후 복구가 불가능합니다.`))return;
+  const btn=document.getElementById('delete-btn');
+  if(btn){btn.disabled=true;btn.textContent='삭제 중...';}
+  try{
+    // 증빙파일도 함께 삭제
+    const{data:files}=await sb.from('voucher_files').select('file_path').eq('voucher_id',r.id);
+    if(files&&files.length>0){
+      const paths=files.map(f=>f.file_path);
+      await sb.storage.from(BUCKET).remove(paths);
+      await sb.from('voucher_files').delete().eq('voucher_id',r.id);
+    }
+    const{error}=await sb.from('vouchers').delete().eq('id',r.id);
+    if(error)throw error;
+    G.vs=G.vs.filter(v=>v.id!==r.id);
+    toast(`전표 삭제 완료: ${r.전표번호||r.id}`,'info');
+    closeDetail();
+    if(G.page==='list')renderList();
+    else if(G.page==='general'||G.page==='trade')renderEntryForm(G.entryPage);
+  }catch(e){toast('삭제 실패: '+e.message,'error');if(btn){btn.disabled=false;btn.textContent='전표 삭제';}}
+}
 function closeDetail(){ document.getElementById('dov').style.display='none'; G.edit=false; G.cur=null; document.getElementById('edit-btn').style.display='inline-flex'; }
 
 // ═══════════════════════════════════════════════════════
@@ -1233,7 +1833,20 @@ async function openFM(vid,mn){
     const{data:files,error}=await sb.from('voucher_files').select('*').eq('voucher_id',vid).order('created_at');
     if(error)throw error;
     const fH=files.length?files.map(f=>`<div class="fi"><div class="fic ${fe(f.file_name)}">${(f.file_name||'').split('.').pop().toUpperCase().slice(0,4)}</div><div class="fn"><div class="fn-n">${f.file_name}</div><div class="fn-s">${fs(f.file_size||0)} · ${new Date(f.created_at).toLocaleDateString('ko-KR')}</div></div><button class="btn btn-sm btn-blue" onclick="dlFile('${f.file_path}','${f.file_name}')">다운로드</button>${G.mgmt?`<button class="btn btn-sm btn-danger" onclick="delFile(${f.id},'${vid}','${mn}')">삭제</button>`:''}</div>`).join(''):'<div style="font-size:13px;color:var(--text3);text-align:center;padding:1.5rem">첨부된 파일이 없습니다.</div>';
-    document.getElementById('fm-body').innerHTML=`${fH}<div style="margin-top:14px;border-top:0.5px solid var(--bd);padding-top:14px"><label class="fl">증빙 파일 추가</label><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:0.5px solid var(--bd2);border-radius:var(--r);font-size:12px;color:var(--text2)">파일 선택<input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.docx" style="display:none" onchange="uploadFiles(this.files,'${vid}','${mn}')"></label></div>`;
+    document.getElementById('fm-body').innerHTML=`${fH}<div style="margin-top:14px;border-top:0.5px solid var(--bd);padding-top:14px">
+  <label class="fl">증빙 파일 추가</label>
+  <div style="border:1.5px dashed var(--bd2);border-radius:var(--r);padding:12px 16px;cursor:pointer;transition:background .15s"
+    onclick="document.getElementById('fm-file-inp-${vid}').click()"
+    ondragover="event.preventDefault();this.style.background='var(--bbg)';this.style.borderColor='var(--blue)'"
+    ondragleave="this.style.background='';this.style.borderColor=''"
+    ondrop="event.preventDefault();this.style.background='';this.style.borderColor='';uploadFiles(event.dataTransfer.files,'${vid}','${mn}')">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v10M8 2L5 5M8 2l3 3M2 13h12" stroke="var(--text3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span style="font-size:12px;color:var(--text2)">파일 선택 또는 드래그&드롭 (PDF, 이미지, Excel 등)</span>
+      <input type="file" id="fm-file-inp-${vid}" multiple accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none" onchange="uploadFiles(this.files,'${vid}','${mn}')">
+    </div>
+  </div>
+</div>`;
   }catch(e){document.getElementById('fm-body').innerHTML=`<div style="color:var(--red)">${e.message}</div>`;}
 }
 function closeFM(){ document.getElementById('fov').style.display='none'; }
