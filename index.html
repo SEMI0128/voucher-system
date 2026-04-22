@@ -220,6 +220,10 @@ tr:last-child td{border-bottom:none}
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 12V6l3-3 4 4 4-4v10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         기간별 요약
       </button>
+      <button class="nav-btn" id="nav-sgna" onclick="goPage('sgna')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 3V2M10 3V2M1 6h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        채널별 판관비
+      </button>
     </div>
     <div class="sb-bottom">
       <button class="mgmt-btn" id="mgmt-btn" onclick="handleMgmtClick()">
@@ -310,6 +314,40 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 증빙 대량 첨부 팝업 -->
+<div class="ov" id="bulk-ov" style="display:none" onclick="if(event.target===this)closeBulkAttach()">
+  <div class="modal" style="max-width:900px;max-height:90vh" onclick="event.stopPropagation()">
+    <div class="mh">
+      <div class="mh-t">📎 증빙 대량 첨부</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span id="bulk-stat" style="font-size:12px;color:var(--text2)"></span>
+        <button class="mc" onclick="closeBulkAttach()">✕</button>
+      </div>
+    </div>
+    <div class="mb">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r)">
+        파일명이 <strong>증빙번호</strong>와 일치하면 <span style="color:var(--grn)">■ 초록</span>(자동 첨부), 불일치 시 <span style="color:var(--red)">■ 빨간</span>으로 표시됩니다.
+      </div>
+      <div id="bulk-drop"
+        style="border:2px dashed var(--bd2);border-radius:var(--rl);padding:20px;text-align:center;cursor:pointer;margin-bottom:14px;transition:all .2s"
+        ondragover="event.preventDefault();this.style.background='var(--bbg)';this.style.borderColor='var(--blue)'"
+        ondragleave="this.style.background='';this.style.borderColor=''"
+        ondrop="event.preventDefault();this.style.background='';this.style.borderColor='';handleBulkDrop(event.dataTransfer.files)"
+        onclick="document.getElementById('bulk-file-inp').click()">
+        <div style="font-size:24px;margin-bottom:6px">📂</div>
+        <div style="font-size:13px;color:var(--text2)">파일을 드래그&드롭하거나 클릭하여 선택</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">PDF, 이미지, Excel 등 — 파일명이 증빙번호와 일치하는 것만 자동 첨부</div>
+        <input type="file" id="bulk-file-inp" multiple accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none" onchange="handleBulkDrop(this.files)">
+      </div>
+      <div id="bulk-list"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;border-top:0.5px solid var(--bd);padding-top:12px">
+        <button class="btn" onclick="closeBulkAttach()">닫기</button>
+        <button class="btn btn-grn" id="bulk-attach-btn" onclick="executeBulkAttach()" style="display:none">✅ 매칭된 파일 첨부하기</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -447,6 +485,7 @@ function renderPage(){
   else if(G.page==='list')    renderList();
   else if(G.page==='channel') renderChannel();
   else if(G.page==='summary') renderSummary();
+  else if(G.page==='sgna')    renderSgna();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -478,6 +517,14 @@ async function loadVS(){
     if(error)throw error; G.vs=data||[];
     const p=G.vs.filter(r=>!r.채널).length;
     const b=document.getElementById('pb'); if(b)b.style.display=p>0?'inline':'none';
+    // 파일 첨부 여부 조회 (증빙 표시용)
+    try{
+      const{data:fdata}=await sb.from('voucher_files').select('voucher_id');
+      if(fdata){
+        const fileSet=new Set(fdata.map(f=>f.voucher_id));
+        G.vs.forEach(v=>{ v._hasFile=fileSet.has(v.id); });
+      }
+    }catch{}
   }catch(e){ toast('로드 실패: '+e.message,'error'); G.vs=[]; }
 }
 async function loadHist(){
@@ -595,10 +642,90 @@ async function renderUpload(){
   const buy=G.vs.filter(r=>r.전표유형==='매입전표');
   const pend=G.vs.filter(r=>!r.채널).length;
   const histHTML=G.hist.length?G.hist.map(h=>`<div class="hi"><span style="font-size:11px;color:var(--text3)">${new Date(h.created_at).toLocaleString('ko-KR')}</span><span class="badge ${h.type==='카드전표'?'b-card':'b-buy'}">${h.type}</span><span style="font-size:12px">${h.team}</span><span style="font-size:12px;color:var(--text2)">${h.period}</span><span style="font-size:12px;font-weight:600">${h.cnt}건</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3)">업로드 내역이 없습니다.</div>';
-  const prevH=G.pend.length?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">미리보기 — ${G.pend.length}건</div>
-    <div class="tw" style="margin-bottom:12px"><table><thead><tr><th>전표일자</th><th>거래처명</th><th>계정과목</th><th style="text-align:right">합계금액</th><th>적요</th></tr></thead>
-    <tbody>${G.pend.slice(0,5).map(r=>`<tr><td>${r.전표일자}</td><td>${r.거래처명}</td><td>${r.계정과목}</td><td style="text-align:right">${fmt(r.합계금액)}원</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.적요}</td></tr>`).join('')}${G.pend.length>5?`<tr><td colspan="5" style="text-align:center;color:var(--text3)">... 외 ${G.pend.length-5}건</td></tr>`:''}</tbody></table></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="G.pend=[];renderUpload()">취소</button><button class="btn btn-p" onclick="confirmUpload()">등록 (${G.pend.length}건)</button></div>`:'';
+  const prevH=G.pend.length?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:12px;color:var(--text2);font-weight:600">미리보기 — ${G.pend.length}건</span>
+    <span style="font-size:11px;color:var(--grn)">■ 정상</span>
+    <span style="font-size:11px;color:var(--red)">■ 오류(클릭하여 수정)</span>
+    <button class="btn btn-sm" style="margin-left:auto" onclick="G.pend=[];renderUpload()">취소</button>
+    <button class="btn btn-sm btn-p" onclick="if(hasPendingEdits()){if(confirm('수정사항을 반영하시겠습니까?'))applyPendingEdits()}">수정 반영</button>
+    <button class="btn btn-sm btn-grn" onclick="confirmUpload()">전표등록 (${G.pend.length}건)</button>
+  </div>
+  <div class="tw" style="margin-bottom:12px"><table>
+    <thead><tr>
+      <th>상태</th><th>전표번호</th><th>전표일자</th><th>차/대변</th><th>계정과목</th>
+      <th>거래처명</th><th style="text-align:right">금액</th><th>적요</th><th>채널</th>
+    </tr></thead>
+    <tbody>${G.pend.flatMap((r,ri)=>{
+      if(r.분개내역&&r.분개내역.length){
+        return r.분개내역.map((j,ji)=>{
+          const errs=[];
+          if(!j.acct)errs.push('계정과목 없음');
+          if(!j.amt)errs.push('금액 없음');
+          if(!j.gubun)errs.push('차/대변 없음');
+          if(!r.전표일자)errs.push('전표일자 없음');
+          const ok=errs.length===0;
+          const bg=ok?'background:rgba(46,125,50,0.06)':'background:rgba(198,40,40,0.08)';
+          return`<tr style="${bg}${ji===0?';border-top:1.5px solid #ddd':''}" title="${errs.join(', ')||''}">
+            ${ji===0?`<td rowspan="${r.분개내역.length}" style="vertical-align:top;text-align:center;padding-top:8px">
+              <span style="font-size:16px">${ok?'✅':'❌'}</span>
+              ${!ok?`<div style="font-size:10px;color:var(--red);white-space:nowrap">${errs[0]||''}</div>`:''}
+            </td>
+            <td rowspan="${r.분개내역.length}" style="vertical-align:top;font-family:monospace;font-size:11px">
+              <input value="${r.전표번호||''}" placeholder="자동부여" style="width:130px;font-size:10px;padding:2px 4px;font-family:monospace"
+                onchange="G.pend[${ri}].전표번호=this.value;G.pend[${ri}]._edited=true">
+            </td>
+            <td rowspan="${r.분개내역.length}" style="vertical-align:top">
+              <input type="date" value="${r.전표일자||''}" style="width:120px;font-size:10px;padding:2px 4px;${!r.전표일자?'border-color:var(--red)':''}"
+                onchange="G.pend[${ri}].전표일자=this.value;G.pend[${ri}].분개내역.forEach(j2=>j2._dateUpdated=true);G.pend[${ri}]._edited=true">
+            </td>`:''}
+            <td>
+              <select style="font-size:11px;padding:2px;${!j.gubun?'border-color:var(--red)':''}"
+                onchange="G.pend[${ri}].분개내역[${ji}].gubun=this.value;G.pend[${ri}]._edited=true">
+                <option ${j.gubun==='차변'?'selected':''}>차변</option>
+                <option ${j.gubun==='대변'?'selected':''}>대변</option>
+              </select>
+            </td>
+            <td><input value="${j.acct||''}" placeholder="계정과목*" style="width:100px;font-size:11px;padding:2px 4px;${!j.acct?'border-color:var(--red)':''}"
+              onchange="G.pend[${ri}].분개내역[${ji}].acct=this.value;G.pend[${ri}]._edited=true"></td>
+            <td><input value="${j.partner||''}" placeholder="거래처" style="width:100px;font-size:11px;padding:2px 4px"
+              onchange="G.pend[${ri}].분개내역[${ji}].partner=this.value;G.pend[${ri}]._edited=true"></td>
+            <td style="text-align:right">
+              <input type="number" value="${j.amt||0}" style="width:90px;font-size:11px;padding:2px 4px;text-align:right;${!j.amt?'border-color:var(--red)':''}"
+                onchange="G.pend[${ri}].분개내역[${ji}].amt=Number(this.value);G.pend[${ri}]._edited=true">
+            </td>
+            <td><input value="${j.memo||''}" placeholder="적요" style="width:100px;font-size:11px;padding:2px 4px"
+              onchange="G.pend[${ri}].분개내역[${ji}].memo=this.value;G.pend[${ri}]._edited=true"></td>
+            ${ji===0?`<td rowspan="${r.분개내역.length}" style="vertical-align:top">
+              <input value="${r.채널||''}" placeholder="채널" style="width:70px;font-size:11px;padding:2px 4px"
+                onchange="G.pend[${ri}].채널=this.value;G.pend[${ri}]._edited=true">
+            </td>`:''}
+          </tr>`;
+        });
+      }
+      // 카드전표 (행 단위)
+      const errs2=[];
+      if(!r.거래처명)errs2.push('거래처 없음');
+      if(!r.합계금액)errs2.push('금액 없음');
+      if(!r.전표일자)errs2.push('전표일자 없음');
+      const ok2=errs2.length===0;
+      return[`<tr style="${ok2?'background:rgba(46,125,50,0.06)':'background:rgba(198,40,40,0.08)'}" title="${errs2.join(', ')||''}">
+        <td style="text-align:center"><span style="font-size:16px">${ok2?'✅':'❌'}</span>
+          ${!ok2?`<div style="font-size:10px;color:var(--red)">${errs2[0]||''}</div>`:''}
+        </td>
+        <td style="font-family:monospace;font-size:11px">${r.전표번호||'자동'}</td>
+        <td><input type="date" value="${r.전표일자||''}" style="width:120px;font-size:10px;padding:2px;${!r.전표일자?'border-color:var(--red)':''}"
+          onchange="G.pend[${ri}].전표일자=this.value;G.pend[${ri}]._edited=true"></td>
+        <td>-</td>
+        <td style="font-size:11px">${r.계정과목||'-'}</td>
+        <td><input value="${r.거래처명||''}" style="width:100px;font-size:11px;padding:2px;${!r.거래처명?'border-color:var(--red)':''}"
+          onchange="G.pend[${ri}].거래처명=this.value;G.pend[${ri}]._edited=true"></td>
+        <td style="text-align:right;font-weight:600">${fmt(r.합계금액)}</td>
+        <td style="font-size:11px">${r.적요||''}</td>
+        <td><input value="${r.채널||''}" style="width:70px;font-size:11px;padding:2px"
+          onchange="G.pend[${ri}].채널=this.value;G.pend[${ri}]._edited=true"></td>
+      </tr>`];
+    }).join('')}</tbody>
+  </table></div>`:'';
   document.getElementById('content').innerHTML=`
   <div class="mg">
     <div class="metric"><div class="ml">전체 금액</div><div class="mv">${fmt(tot)}원</div><div class="ms">${G.vs.length}건</div></div>
@@ -659,8 +786,63 @@ function handleFile(file){
     const period=`${from}~${to}`;
     const rows=data.slice(4).filter(r=>r.some(c=>c!==''&&c!=null));
     G.pend=[];
-    if(type==='card'){ rows.forEach(r=>{ const amt=pn(r[9]);if(!amt)return; G.pend.push({id:uid(),전표유형:'카드전표',전표일자:fd(r[0]),청구일자:fd(r[1]),카드사:cl(r[2]),카드번호:cl(r[3]),거래처명:cl(r[4]),사업자번호:cl(r[5]),계정과목:cl(r[6]),공급가액:pn(r[7]),부가세:pn(r[8]),합계금액:amt,전표번호:cl(r[10]),전표입력유형:'카드전표',적요:cl(r[12]),담당자:cl(r[13]),팀명:team,채널:'',업로드팀:team,업로드기간:period}); }); }
-    else{ rows.forEach(r=>{ const amt=pn(r[8]);if(!amt)return; G.pend.push({id:uid(),전표유형:'매입전표',전표일자:fd(r[0]),청구일자:fd(r[0]),카드사:'',카드번호:'',거래처명:cl(r[1]),사업자번호:cl(r[2]),계정과목:cl(r[4]),공급가액:pn(r[6]),부가세:pn(r[7]),합계금액:amt,전표번호:cl(r[12]),전표입력유형:'매입매출전표',적요:cl(r[13]),담당자:cl(r[14]),팀명:team,채널:cl(r[17])||'',업로드팀:team,업로드기간:period,차변계정:cl(r[4]),대변계정:cl(r[5]),적격증빙:cl(r[11]),진행상황:cl(r[15])}); }); }
+
+    if(type==='card'){
+      // ── 카드전표: 행 단위 ──
+      // 컬럼: 전표일자|청구일자|카드사|카드번호|거래처명|사업자번호|계정과목|공급가액|부가세|합계금액|전표번호(선택)|채널|적요|담당자
+      //         0       1       2       3        4        5          6        7        8     9         10              11   12   13
+      rows.forEach(r=>{
+        const amt=pn(r[9]); if(!amt)return;
+        // 전표번호: 엑셀에 있으면 그대로, 없으면 나중에 confirmUpload에서 자동 부여 (임시 날짜 저장)
+        G.pend.push({
+          id:uid(), 전표유형:'카드전표', 전표입력유형:'카드전표',
+          전표일자:fd(r[0]), 청구일자:fd(r[1]), 카드사:cl(r[2]), 카드번호:cl(r[3]),
+          거래처명:cl(r[4]), 사업자번호:cl(r[5]), 계정과목:cl(r[6]),
+          공급가액:pn(r[7]), 부가세:pn(r[8]), 합계금액:amt,
+          전표번호:cl(r[10])||'', 채널:cl(r[11])||'', 적요:cl(r[12]),
+          담당자:cl(r[13]), 팀명:team, 업로드팀:team, 업로드기간:period,
+          _needVno: !cl(r[10]),  // 전표번호 자동 부여 필요 여부
+        });
+      });
+    } else {
+      // ── 매입전표: 분개 행 방식 - 전표번호로 묶기 ──
+      // 컬럼: 전표번호(선택)|전표일자|차/대변|계정과목|거래처명|사업자번호|금액|적요|담당자|팀명|채널|과세유형|적격증빙
+      //         0              1       2       3        4        5          6   7   8      9    10   11      12
+      // ※ 부가세 컬럼 없음 — 부가세대급금을 차/대변 행으로 직접 입력
+      const voucherMap=new Map();
+      // 전표번호가 없는 경우 전표일자 기준으로 그룹키 사용 (나중에 실제 번호로 교체)
+      let autoKeySeq=0;
+      rows.forEach(r=>{
+        let vno=cl(r[0]);
+        const date=fd(r[1]); if(!date)return;
+        const amt=pn(r[6]); if(!amt)return;
+        // 전표번호 없으면 임시 키 (날짜+순번)
+        if(!vno){ vno=`__auto__${date}__${++autoKeySeq}`; }
+        if(!voucherMap.has(vno)){
+          voucherMap.set(vno,{
+            id:uid(), 전표유형:'매입전표', 전표입력유형:'매입매출전표',
+            전표번호:vno.startsWith('__auto__')?'':vno,
+            전표일자:date,
+            거래처명:cl(r[4]), 사업자번호:cl(r[5]),
+            계정과목:cl(r[3]), 공급가액:0, 부가세:0, 합계금액:0,
+            담당자:cl(r[8]), 팀명:cl(r[9])||team,
+            채널:cl(r[10])||'', 업로드팀:team, 업로드기간:period,
+            과세유형:cl(r[11])||'과세', 적격증빙:cl(r[12])||'세금계산서',
+            분개내역:[], _hasDebit:false,
+            _needVno: vno.startsWith('__auto__'),  // 자동 부여 필요
+          });
+        }
+        const v=voucherMap.get(vno);
+        const gubun=cl(r[2]);
+        v.분개내역.push({id:uid(),gubun,acct:cl(r[3]),partner:cl(r[4]),bizno:cl(r[5]),amt,vat:0,memo:cl(r[7])});
+        if(gubun==='차변'){
+          v.합계금액+=amt;
+          if(!v._hasDebit){v.계정과목=cl(r[3]);v._hasDebit=true;}
+        }
+      });
+      voucherMap.forEach(v=>{ v.공급가액=v.합계금액; delete v._hasDebit; G.pend.push(v); });
+    }
+
     if(fb)fb.textContent=`✓ ${file.name} — ${G.pend.length}건 인식됨`;
     renderUpload();
   }catch(err){ if(fb){fb.style.display='block';fb.textContent='오류: '+err.message;} } };
@@ -671,7 +853,24 @@ async function confirmUpload(){
   const btn=document.querySelector('[onclick="confirmUpload()"]');
   if(btn){btn.disabled=true;btn.textContent='저장 중...';}
   try{
-    const{error}=await sb.from('vouchers').upsert(G.pend); if(error)throw error;
+    // ── 전표번호 자동 부여 (엑셀에 번호 없는 경우) ──
+    const needCard  = G.pend.filter(v=>v._needVno && v.전표유형==='카드전표');
+    const needTrade = G.pend.filter(v=>v._needVno && v.전표유형==='매입전표');
+    const assignVnos = async (rows, vtype) => {
+      const byDate = {};
+      rows.forEach(r=>{ (byDate[r.전표일자]=byDate[r.전표일자]||[]).push(r); });
+      for(const [date, items] of Object.entries(byDate)){
+        for(const item of items){
+          item.전표번호 = await getNextVoucherNo(date, vtype);
+        }
+      }
+    };
+    if(needCard.length)  await assignVnos(needCard,  'card');
+    if(needTrade.length) await assignVnos(needTrade, 'trade');
+    G.pend.forEach(v=>{ delete v._needVno; });
+    // ── 분개내역 JSON 직렬화 후 저장 ──
+    const toSave = G.pend.map(v=>({...v, 분개내역: v.분개내역 ? JSON.stringify(v.분개내역) : null}));
+    const{error}=await sb.from('vouchers').upsert(toSave); if(error)throw error;
     await sb.from('upload_history').insert({team:G.pend[0]?.업로드팀||'미지정',period:G.pend[0]?.업로드기간||'',type:G.pend[0]?.전표유형||'카드전표',cnt:G.pend.length});
     toast(`${G.pend.length}건 등록됐습니다.`,'success'); G.pend=[]; renderUpload();
   }catch(e){ toast('저장 실패: '+e.message,'error'); if(btn){btn.disabled=false;btn.textContent=`등록 (${G.pend.length}건)`;} }
@@ -727,6 +926,10 @@ function renderEntryForm(type){
         <label class="fl">사업자번호 <span style="font-size:10px;color:var(--text3)">(거래처 선택 시 자동 입력)</span></label>
         <input type="text" id="e-bizno-common" placeholder="000-00-00000">
       </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">증빙번호 <span style="font-size:10px;color:var(--text3)">(선택)</span></label>
+        <input type="text" id="e-evno-common" placeholder="승인번호 / 세금계산서번호" style="font-family:monospace">
+      </div>
     </div></div>
 
     ${isTrade?`
@@ -753,6 +956,7 @@ function renderEntryForm(type){
         <select id="e-taxtype" onchange="applyTax()">
           <option value="과세">과세 (10%)</option><option value="면세">면세 (0%)</option>
           <option value="영세">영세율 (0%)</option><option value="불공제">불공제</option>
+          <option value="수출">수출</option><option value="수입">수입</option>
         </select></div>
       <div class="fg"><label class="fl">적격증빙</label>
         <select id="e-evid">
@@ -1190,7 +1394,7 @@ function previewEntry(){
   const bizno=document.getElementById('e-bizno')?.value
     || document.getElementById('e-bizno-common')?.value||'';
   const evid=document.getElementById('e-evid')?.value||'';
-  const evno=document.getElementById('e-evno')?.value||'';
+  const evno=document.getElementById('e-evno')?.value||document.getElementById('e-evno-common')?.value||'';
   const supply=pn(document.getElementById('e-supply')?.value||debit);
   const vat=pn(document.getElementById('e-vat')?.value||0);
   const empInType=document.getElementById('e-emp-type')?.value||'none';
@@ -1274,7 +1478,7 @@ async function doSaveEntry(){
       업로드기간:p.date.slice(0,10),
       과세유형:document.getElementById('e-taxtype')?.value||'과세',
       적격증빙:p.evid,
-      증빙번호:p.evno,
+      증빙번호:p.evno || document.getElementById('e-evno-common')?.value || '',
       분개내역:JSON.stringify(G.eRows),
       emp_입고일자:p.empIn,
       emp_반출일자:p.empOut,
@@ -1364,12 +1568,15 @@ async function renderList(){
     <input id="fl-q" type="text" placeholder="거래처·적요 검색" oninput="applyF()" style="width:140px">
     ${G.mgmt?'<span style="font-size:11px;padding:4px 10px;background:var(--obg);color:var(--org);border-radius:6px;font-weight:500">경영지원팀 모드</span>':''}
   </div>
-  <div style="font-size:11px;color:var(--text3);margin-bottom:8px">행 클릭 → 상세 보기 및 수정. 증빙 없는 전표는 빨간색 표시.</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:11px;color:var(--text3)">행 클릭 → 상세/수정. <span style="color:var(--red)">빨간 행</span>=증빙 미첨부.</span>
+    <button class="btn btn-sm btn-org" style="margin-left:auto" onclick="openBulkAttach()">📎 증빙 대량 첨부</button>
+  </div>
   <div class="tw"><table>
     <thead><tr>
       <th>전표번호</th><th>유형</th><th>전표일자</th><th>팀</th><th>거래처</th>
       <th>계정과목</th><th style="text-align:right">합계금액</th>
-      <th>담당자</th><th>채널</th><th>증빙</th><th>EMP입고</th>
+      <th>증빙번호</th><th>담당자</th><th>채널</th><th>증빙</th><th>EMP입고</th>
     </tr></thead>
     <tbody id="vtb">${buildRows(G.vs)}</tbody>
   </table></div>
@@ -1377,20 +1584,25 @@ async function renderList(){
 }
 
 function buildRows(recs){
-  if(!recs.length)return'<tr><td colspan="11" style="text-align:center;padding:2.5rem;color:var(--text3)">전표가 없습니다.</td></tr>';
-  return recs.map(r=>`<tr class="vrow${!r.채널?' no-ch':''}" onclick="openDetail('${r.id}')">
-    <td style="font-family:monospace;font-size:11px;${!r.적격증빙&&r.전표유형==='직접입력'?'color:var(--red)':''}">${r.전표번호||'-'}</td>
+  if(!recs.length)return'<tr><td colspan="12" style="text-align:center;padding:2.5rem;color:var(--text3)">전표가 없습니다.</td></tr>';
+  return recs.map(r=>{
+    const hasFile=r._fileCount>0||r._hasFile;
+    const noFile=!hasFile;
+    const rowStyle=noFile?'background:rgba(198,40,40,0.04)':'';
+    return`<tr class="vrow${!r.채널?' no-ch':''}" onclick="openDetail('${r.id}')" style="${rowStyle}">
+    <td style="font-family:monospace;font-size:11px">${r.전표번호||'-'}</td>
     <td><span class="badge ${r.전표유형==='카드전표'?'b-card':r.전표유형==='매입전표'?'b-buy':'b-manual'}">${r.전표입력유형||r.전표유형}</span></td>
     <td style="white-space:nowrap;font-size:11px">${r.전표일자||'-'}</td>
     <td style="font-size:11px">${r.팀명||'-'}</td>
     <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.거래처명||'-'}</td>
     <td style="font-size:11px;color:var(--text2)">${r.계정과목||'-'}</td>
-    <td style="text-align:right;white-space:nowrap;font-weight:600">${fmt(r.합계금액)}원</td>
+    <td style="text-align:right;white-space:nowrap;font-weight:600;font-family:monospace">${fmt(r.합계금액)}원</td>
+    <td style="font-size:11px;font-family:monospace;color:var(--text2)">${r.증빙번호||'-'}</td>
     <td style="font-size:11px">${r.담당자||'-'}</td>
     <td>${chB(r.채널)}</td>
-    <td><button class="btn btn-sm" style="${!r.적격증빙?'color:var(--red);border-color:var(--red)':''}" onclick="event.stopPropagation();openFM('${r.id}','${(r.거래처명||'').replace(/'/g,"\\'")}')">파일</button></td>
-    <td style="font-size:11px;color:var(--text2)">${r.emp_입고일자||'-'}</td>
-  </tr>`).join('');
+    <td style="font-size:11px">${noFile?'<span style="color:var(--red);font-size:10px;font-weight:600">증빙을 첨부해주세요.</span>':'<span style="color:var(--grn);font-size:11px">✓ 첨부됨</span>'}</td>
+    <td style="font-size:11px;color:var(--text3)">${r.emp_입고일자?'입고:'+r.emp_입고일자:''}</td>
+  </tr>`;}).join('');
 }
 
 function applyF(){
@@ -2024,12 +2236,32 @@ function renderDetailBody(r,em){
     <div class="fg"><label class="fl">EMP 입고일자</label><input id="e-emp_입고일자" value="${r.emp_입고일자||''}" ${ro} placeholder="날짜 또는 '관련 없음'"></div>
     <div class="fg"><label class="fl">EMP 반출일자</label><input id="e-emp_반출일자" value="${r.emp_반출일자||''}" ${ro} placeholder="날짜 또는 '관련 없음'"></div>
   </div></div>
-  <div class="es"><div class="es-t">적요</div><textarea id="e-적요" rows="2" ${ro}>${r.적요||''}</textarea></div>`;
+  <div class="es"><div class="es-t">적요</div><textarea id="e-적요" rows="2" ${ro}>${r.적요||''}</textarea></div>
+  ${em?`<div class="es"><div class="es-t" style="color:var(--org)">수정 정보</div><div class="g2" style="gap:10px">
+    <div class="fg"><label class="fl">수정일</label><input value="${new Date().toISOString().slice(0,10)}" readonly style="background:var(--bg3);color:var(--text2)"></div>
+    <div class="fg"><label class="fl">수정자 *</label><input id="e-수정자" placeholder="수정자 이름 입력" style="border-color:var(--org)"></div>
+  </div></div>`:''}
+  ${r.수정일?`<div style="font-size:11px;color:var(--text3);padding:6px 0">최종 수정: ${r.수정일} · ${r.수정자||'미지정'}</div>`:''}
+  <div class="es"><div class="es-t" style="display:flex;align-items:center;justify-content:space-between">
+    증빙 파일
+    <button class="btn btn-sm btn-blue" onclick="openFM('${r.id}','${(r.전표번호||r.id).replace(/'/g,'')}')" style="font-size:11px">파일 관리</button>
+  </div>
+  <div id="detail-drop-zone" style="border:1.5px dashed var(--bd2);border-radius:var(--r);padding:10px 14px;cursor:pointer;font-size:12px;color:var(--text2)"
+    ondragover="event.preventDefault();this.style.background='var(--bbg)';this.style.borderColor='var(--blue)'"
+    ondragleave="this.style.background='';this.style.borderColor=''"
+    ondrop="event.preventDefault();this.style.background='';this.style.borderColor='';uploadFiles(event.dataTransfer.files,'${r.id}','${(r.전표번호||r.id).replace(/'/g,'')}');renderDetailBody(G.cur,em)"
+    onclick="document.getElementById('detail-file-inp').click()">
+    📎 증빙 파일 드래그&드롭 또는 클릭하여 첨부
+    <input type="file" id="detail-file-inp" multiple accept="image/*,.pdf,.xlsx,.xls,.docx,.doc" style="display:none"
+      onchange="uploadFiles(this.files,'${r.id}','${(r.전표번호||r.id).replace(/'/g,'')}')">
+  </div></div>`;
 }
 
 function toggleEdit(){ G.edit=!G.edit; const eb=document.getElementById('edit-btn'),sb=document.getElementById('save-btn'); if(G.edit){eb.textContent='취소';eb.className='btn btn-sm btn-danger';sb.style.display='inline-flex';}else{eb.textContent='수정';eb.className='btn btn-sm btn-blue';sb.style.display='none';} if(G.cur)renderDetailBody(G.cur,G.edit); }
 async function saveDetail(){
   const r=G.cur;if(!r)return;
+  const today=new Date().toISOString().slice(0,10);
+  const modifier=document.getElementById('e-수정자')?.value||'';
   const upd={
     전표일자:document.getElementById('e-전표일자')?.value||r.전표일자,
     담당자:document.getElementById('e-담당자')?.value||r.담당자,
@@ -2043,6 +2275,8 @@ async function saveDetail(){
     적요:document.getElementById('e-적요')?.value||r.적요,
     emp_입고일자:document.getElementById('e-emp_입고일자')?.value||r.emp_입고일자,
     emp_반출일자:document.getElementById('e-emp_반출일자')?.value||r.emp_반출일자,
+    수정일:today,
+    수정자:modifier,
   };
   if(G.mgmt){upd.팀명=document.getElementById('e-팀명')?.value||r.팀명; upd.채널=document.getElementById('e-채널')?.value||r.채널;}
   const sb2=document.getElementById('save-btn');sb2.disabled=true;sb2.textContent='저장 중...';
@@ -2139,6 +2373,177 @@ async function renderSummary(){
   const thC=G.channels.map(c=>`<th style="text-align:right;font-size:10px">${c}</th>`).join('');
   document.getElementById('content').innerHTML=`<div class="tw"><table><thead><tr><th>기간</th><th>팀</th><th>건수</th><th style="text-align:right">합계</th><th style="text-align:right">카드</th><th style="text-align:right">매입</th><th style="text-align:right">직접입력</th>${thC}<th style="text-align:right">미부여</th></tr></thead><tbody>${periods.map(p=>{const teams=[...new Set(G.vs.filter(r=>r.업로드기간===p).map(r=>r.팀명||'미지정'))].sort();return teams.map((tm,ti)=>{const mr=G.vs.filter(r=>r.업로드기간===p&&(r.팀명||'미지정')===tm);const tot=mr.reduce((s,r)=>s+Number(r.합계금액||0),0);const none=mr.filter(r=>!r.채널).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<tr>${ti===0?`<td rowspan="${teams.length}" style="font-weight:600;vertical-align:top;padding-top:10px;font-size:12px;white-space:nowrap">${p}</td>`:''}<td style="font-size:12px">${tm}</td><td>${mr.length}건</td><td style="text-align:right;font-weight:600">${fmt(tot)}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='카드전표').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='매입전표').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td><td style="text-align:right;font-size:11px;color:var(--text2)">${fmt(mr.filter(r=>r.전표유형==='직접입력').reduce((s,r)=>s+Number(r.합계금액||0),0))}원</td>${G.channels.map(ch=>{const v=mr.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);return`<td style="text-align:right;font-size:11px;color:var(--text2)">${v>0?fmt(v)+'원':'-'}</td>`;}).join('')}<td style="text-align:right;font-size:11px;color:${none>0?'var(--red)':'var(--text2)'}">${none>0?fmt(none)+'원':'-'}</td></tr>`;}).join('');}).join('')}</tbody></table></div>`;
 }
+
+// ═══════════════════════════════════════════════════════
+// 엑셀 업로드 미리보기 헬퍼
+// ═══════════════════════════════════════════════════════
+function hasPendingEdits(){
+  return G.pend.some(r=>r._edited);
+}
+function applyPendingEdits(){
+  // 이미 실시간 반영됨 (onchange에서 직접 수정) - 플래그만 클리어
+  G.pend.forEach(r=>{ delete r._edited; });
+  toast('수정사항이 반영됐습니다.','success');
+  renderUpload();
+}
+
+// ═══════════════════════════════════════════════════════
+// 증빙 대량 첨부
+// ═══════════════════════════════════════════════════════
+let G_bulkFiles = []; // {file, voucherRecord, matched}
+
+function openBulkAttach(){
+  // 증빙 미첨부 전표만 가져오기
+  const noFilePending = G.vs.filter(v=>!v._hasFile && v.증빙번호);
+  document.getElementById('bulk-stat').textContent=`증빙 미첨부 전표 ${G.vs.filter(v=>!v._hasFile).length}건`;
+  document.getElementById('bulk-list').innerHTML='';
+  document.getElementById('bulk-attach-btn').style.display='none';
+  G_bulkFiles=[];
+  document.getElementById('bulk-ov').style.display='flex';
+}
+function closeBulkAttach(){
+  document.getElementById('bulk-ov').style.display='none';
+  G_bulkFiles=[];
+}
+function handleBulkDrop(fileList){
+  const files=Array.from(fileList);
+  G_bulkFiles=[];
+  const noFileVouchers=G.vs.filter(v=>!v._hasFile);
+  // 파일명(확장자 제거)과 증빙번호 매칭
+  files.forEach(f=>{
+    const stem=f.name.replace(/\.[^.]+$/,'').trim();
+    const matched=noFileVouchers.find(v=>{
+      const evno=(v.증빙번호||'').trim();
+      return evno && (evno===stem || stem.includes(evno) || evno.includes(stem));
+    });
+    G_bulkFiles.push({file:f,voucher:matched||null,matched:!!matched});
+  });
+  renderBulkList();
+  const hasMatch=G_bulkFiles.some(x=>x.matched);
+  document.getElementById('bulk-attach-btn').style.display=hasMatch?'inline-flex':'none';
+}
+function renderBulkList(){
+  const matchCount=G_bulkFiles.filter(x=>x.matched).length;
+  const noMatchCount=G_bulkFiles.length-matchCount;
+  document.getElementById('bulk-list').innerHTML=`
+    <div style="font-size:12px;margin-bottom:8px">
+      <span style="color:var(--grn);font-weight:600">✅ 매칭 ${matchCount}건</span>
+      <span style="color:var(--red);font-weight:600;margin-left:12px">❌ 미매칭 ${noMatchCount}건</span>
+    </div>
+    <div class="tw"><table><thead><tr>
+      <th>상태</th><th>파일명</th><th>크기</th><th>매칭된 전표번호</th><th>거래처</th><th>증빙번호</th>
+    </tr></thead><tbody>
+    ${G_bulkFiles.map(x=>`<tr style="${x.matched?'background:rgba(46,125,50,0.06)':'background:rgba(198,40,40,0.06)'}">
+      <td style="text-align:center">${x.matched?'<span style="color:var(--grn);font-size:16px">✅</span>':'<span style="color:var(--red);font-size:16px">❌</span>'}</td>
+      <td style="font-size:12px">${x.file.name}</td>
+      <td style="font-size:11px;color:var(--text3)">${fs(x.file.size)}</td>
+      <td style="font-family:monospace;font-size:11px">${x.voucher?.전표번호||'-'}</td>
+      <td style="font-size:11px">${x.voucher?.거래처명||'-'}</td>
+      <td style="font-family:monospace;font-size:11px;color:var(--blue)">${x.voucher?.증빙번호||'-'}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+async function executeBulkAttach(){
+  const matched=G_bulkFiles.filter(x=>x.matched);
+  if(!matched.length){toast('매칭된 파일이 없습니다.','error');return;}
+  const btn=document.getElementById('bulk-attach-btn');
+  btn.disabled=true; btn.textContent='첨부 중...';
+  let done=0;
+  for(const {file,voucher} of matched){
+    try{
+      const path=`${voucher.id}/${Date.now()}_${file.name}`;
+      const{error:ue}=await sb.storage.from(BUCKET).upload(path,file,{upsert:true});
+      if(ue)throw ue;
+      await sb.from('voucher_files').insert({voucher_id:voucher.id,file_name:file.name,file_path:path,file_type:file.type,file_size:file.size,uploaded_by:'대량첨부'});
+      voucher._hasFile=true;
+      done++;
+    }catch(e){toast(file.name+' 실패: '+e.message,'error');}
+  }
+  toast(`${done}개 파일 첨부 완료!`,'success');
+  btn.disabled=false; btn.textContent='✅ 매칭된 파일 첨부하기';
+  // 목록 새로고침
+  await loadVS();
+  closeBulkAttach();
+  if(G.page==='list')renderList();
+}
+
+// ═══════════════════════════════════════════════════════
+// 채널별 판매관리비 (IV. 판관비)
+// ═══════════════════════════════════════════════════════
+const SGNA_ITEMS = ['임원급여', '직원급여', '상여금', '잡급', '퇴직급여', '복리후생비', '여비교통비', '접대비(기업업무추진비)', '통신비', '전력비', '세금과공금', '감가상각비', '무형자산상각비', '수선비', '보험료', '차량유지비', '경상연구개발비', '소모품비', '도서인쇄비', '지급수수료', '광고선전비', '견본비', '포장비', '운반비', '교육훈련비', '행사비', '리베이트', '주식보상비용', '기타판매관리비'];
+
+async function renderSgna(){
+  await loadVS();
+  const fl=G.vs;
+  // 날짜 범위 필터 UI
+  const years=[...new Set(fl.map(r=>(r.전표일자||'').slice(0,4)))].filter(Boolean).sort().reverse();
+  const months=[...new Set(fl.map(r=>(r.전표일자||'').slice(0,7)))].filter(Boolean).sort().reverse();
+
+  document.getElementById('content').innerHTML=`
+  <div class="fb" style="margin-bottom:12px">
+    <select id="sg-year" onchange="renderSgnaTable()"><option value="">전체 연도</option>${years.map(y=>`<option>${y}</option>`).join('')}</select>
+    <select id="sg-month" onchange="renderSgnaTable()"><option value="">전체 월</option>${months.map(m=>`<option>${m}</option>`).join('')}</select>
+    <select id="sg-team" onchange="renderSgnaTable()"><option value="">전체 팀</option>${[...new Set(fl.map(r=>r.팀명||'미지정'))].sort().map(t=>`<option>${t}</option>`).join('')}</select>
+  </div>
+  <div id="sgna-table"></div>`;
+  renderSgnaTable();
+}
+
+function renderSgnaTable(){
+  const year=document.getElementById('sg-year')?.value||'';
+  const month=document.getElementById('sg-month')?.value||'';
+  const team=document.getElementById('sg-team')?.value||'';
+  let fl=G.vs.filter(r=>r.계정과목);
+  if(year) fl=fl.filter(r=>(r.전표일자||'').startsWith(year));
+  if(month) fl=fl.filter(r=>(r.전표일자||'').startsWith(month));
+  if(team) fl=fl.filter(r=>(r.팀명||'미지정')===team);
+
+  const channels=G.channels;
+  const thCols=channels.map(c=>`<th style="text-align:right;white-space:nowrap;min-width:80px">${c}</th>`).join('');
+
+  // 계정과목별 × 채널별 집계
+  const getAmt=(acct,ch)=>fl.filter(r=>r.계정과목===acct&&r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);
+  const getTotal=(acct)=>fl.filter(r=>r.계정과목===acct).reduce((s,r)=>s+Number(r.합계금액||0),0);
+  const grandTotal=fl.reduce((s,r)=>s+Number(r.합계금액||0),0);
+
+  const rows=SGNA_ITEMS.map(item=>{
+    const tot=getTotal(item);
+    const cols=channels.map(ch=>{
+      const v=getAmt(item,ch);
+      return`<td style="text-align:right;font-size:12px;color:var(--text2)">${v>0?fmt(v):''}  </td>`;
+    }).join('');
+    return`<tr>
+      <td style="padding-left:20px;font-size:13px">${item}</td>
+      <td style="text-align:right;font-weight:600;font-size:13px">${tot>0?fmt(tot):''}</td>
+      ${cols}
+    </tr>`;
+  }).join('');
+
+  const totalCols=channels.map(ch=>{
+    const v=fl.filter(r=>r.채널===ch).reduce((s,r)=>s+Number(r.합계금액||0),0);
+    return`<td style="text-align:right;font-weight:700">${v>0?fmt(v):''}  </td>`;
+  }).join('');
+
+  document.getElementById('sgna-table').innerHTML=`
+  <div class="tw"><table style="width:100%">
+    <thead>
+      <tr style="background:var(--bg2)">
+        <th style="text-align:left;min-width:200px">구분</th>
+        <th style="text-align:right;font-weight:700">합계</th>
+        ${thCols}
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:var(--bg3);border-top:1.5px solid var(--bd)">
+        <td style="font-weight:700;padding:8px 10px">IV. 판매비와 관리비</td>
+        <td style="text-align:right;font-weight:700">${grandTotal>0?fmt(grandTotal):0}</td>
+        ${totalCols}
+      </tr>
+      ${rows}
+    </tbody>
+  </table></div>`;
+}
+
 </script>
 </body>
 </html>
