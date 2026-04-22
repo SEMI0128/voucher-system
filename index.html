@@ -388,9 +388,25 @@ document.getElementById('site-pw').focus();
 // 초기화
 // ═══════════════════════════════════════════════════════
 async function init(){
-  loadProfile();     // localStorage에서 기본정보 불러오기 (loadMaster 포함)
+  loadProfile();
   await loadChannels();
   renderPage();
+  // 거래처 데이터를 백그라운드에서 미리 로드 (자동완성용)
+  loadClientsBackground();
+}
+
+async function loadClientsBackground(){
+  try{
+    const [{data:gen},{data:card},{data:fin}] = await Promise.all([
+      sb.from('clients_general').select('id,code,name,biz_no,use_yn').order('name'),
+      sb.from('clients_card').select('id,code,name,card_no,use_yn').order('name'),
+      sb.from('clients_finance').select('id,code,name,acct_no,use_yn').order('name'),
+    ]);
+    G.clients.일반  = gen  || [];
+    G.clients.카드  = card || [];
+    G.clients.금융  = fin  || [];
+    G.clientsLoaded = true;
+  }catch(e){ console.warn('거래처 백그라운드 로드 실패:', e.message); }
 }
 
 async function loadChannels(){
@@ -692,6 +708,25 @@ function renderEntryForm(type){
       <div class="fg"><label class="fl">전표 유형</label><input value="${isTrade?'매입매출전표':'일반전표'}" readonly></div>
       <div class="fg"><label class="fl">담당자</label><input type="text" id="e-person" value="${G.profile.person||''}" placeholder="이름 입력"></div>
       <div class="fg"><label class="fl">소속 팀</label><select id="e-team">${tmOpts}</select></div>
+    </div>
+    <!-- 거래처 (일반전표/매입매출전표 공통) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">거래처명 <span style="font-size:10px;color:var(--text3)">(선택)</span></label>
+        <div class="ac-wrap">
+          <input type="text" id="e-partner-common" placeholder="거래처명 검색..." autocomplete="off" style="width:100%"
+            value="${G.profile.partner||''}"
+            oninput="onCommonPartnerInput(this.value)"
+            onfocus="onCommonPartnerFocus()"
+            onblur="setTimeout(()=>hideAc('e-partner-common'),200)"
+            onkeydown="acKeydown(event,'e-partner-common')">
+          <div class="ac-list" id="ac-e-partner-common" style="max-height:200px;overflow-y:auto;z-index:300"></div>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">사업자번호 <span style="font-size:10px;color:var(--text3)">(거래처 선택 시 자동 입력)</span></label>
+        <input type="text" id="e-bizno-common" placeholder="000-00-00000">
+      </div>
     </div></div>
 
     ${isTrade?`
@@ -711,8 +746,8 @@ function renderEntryForm(type){
         </div>
       </div>
       <div class="fg" style="grid-column:3/5">
-        <label class="fl">사업자번호 <span style="font-size:10px;color:var(--text3)">(거래처 선택 시 자동 입력)</span></label>
-        <input type="text" id="e-bizno" placeholder="000-00-00000">
+        <label class="fl">사업자번호 <span style="font-size:10px;color:var(--text3)">(위에서 자동 입력됨)</span></label>
+        <input type="text" id="e-bizno" placeholder="000-00-00000" onfocus="syncBizNo()">
       </div>
       <div class="fg"><label class="fl">과세 유형</label>
         <select id="e-taxtype" onchange="applyTax()">
@@ -855,15 +890,26 @@ function buildEntryRows(){
       </select></td>
       <td>
         <div class="ac-wrap">
-          <input type="text" id="acct-${row.id}" value="${row.acct||''}" placeholder="계정과목 입력" style="width:100%"
+          <input type="text" id="acct-${row.id}" value="${row.acct||''}" placeholder="계정과목 검색..." style="width:100%"
             autocomplete="off"
             oninput="updateRow('${row.id}','acct',this.value);showAc('acct-${row.id}',${JSON.stringify(ACCTS)})"
+            onfocus="showAllAc('acct-${row.id}',${JSON.stringify(ACCTS)})"
             onblur="setTimeout(()=>hideAc('acct-${row.id}'),200)"
             onkeydown="acKeydown(event,'acct-${row.id}')">
           <div class="ac-list" id="ac-acct-${row.id}"></div>
         </div>
       </td>
-      <td><input type="text" value="${row.partner||''}" placeholder="거래처" style="width:100%" onchange="updateRow('${row.id}','partner',this.value)"></td>
+      <td>
+        <div class="ac-wrap" style="position:relative">
+          <input type="text" id="jtp-${row.id}" value="${row.partner||''}" placeholder="거래처 검색..." style="width:100%;min-width:120px"
+            autocomplete="off"
+            oninput="updateRow('${row.id}','partner',this.value);showRowPartnerAc('${row.id}',this.value)"
+            onfocus="showRowPartnerAc('${row.id}',this.value)"
+            onblur="setTimeout(()=>hideAc('jtp-${row.id}'),200)"
+            onkeydown="acKeydown(event,'jtp-${row.id}')">
+          <div class="ac-list" id="ac-jtp-${row.id}" style="max-height:180px;overflow-y:auto;z-index:500;min-width:200px"></div>
+        </div>
+      </td>
       <td><input type="text" value="${row.memo||''}" placeholder="적요" style="width:100%" onchange="updateRow('${row.id}','memo',this.value)"></td>
       <td><input type="number" value="${row.amt||''}" placeholder="0" style="width:140px;text-align:right;font-weight:600" oninput="updateRow('${row.id}','amt',this.value);recalcEntry()"></td>
       <td><button class="del-row" onclick="delRow('${row.id}')">✕</button></td>
@@ -886,16 +932,113 @@ function fillMemoToRows(){
   G.eRows.forEach(r=>{ r.memo=memo; });
   const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows();
 }
-function onPartnerInput(val){
+// ── 공통 거래처 입력 (일반전표·매입매출전표 상단) ──
+async function onCommonPartnerInput(val){
+  const ac = document.getElementById('ac-e-partner-common');
+  if(!ac) return;
+  const q = val.toLowerCase().trim();
+  if(!q){ ac.style.display='none'; return; }
+  // 미로드 시 로드 대기
+  if(!G.clientsLoaded){
+    ac.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3)">거래처 로딩 중...</div>';
+    ac.style.display='block';
+    await loadClientsBackground();
+  }
+  const names = getClientNamesWithBiz();
+  const matches = names.filter(x=>x.name.toLowerCase().includes(q)||(x.biz_no||'').includes(q)).slice(0,30);
+  if(!matches.length){ ac.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3)">검색 결과 없음</div>'; ac.style.display='block'; return; }
+  ac.innerHTML = matches.map(m=>`
+    <div class="ac-item" style="display:flex;justify-content:space-between;align-items:center"
+      onmousedown="selectCommonPartner('${m.name.replace(/'/g,"\\'")}','${(m.biz_no||'').replace(/'/g,"\\'")}');event.preventDefault()">
+      <span>${_hlMatch(m.name,q)}</span>
+      ${m.biz_no?`<span style="font-size:11px;color:var(--text3);margin-left:8px">${m.biz_no}</span>`:''}
+    </div>`).join('');
+  ac.style.display='block';
+}
+async function onCommonPartnerFocus(){
+  const ac = document.getElementById('ac-e-partner-common');
+  if(!ac) return;
+  // 아직 미로드면 먼저 로드
+  if(!G.clientsLoaded){
+    ac.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3)">거래처 로딩 중...</div>';
+    ac.style.display='block';
+    await loadClientsBackground();
+  }
+  const val = document.getElementById('e-partner-common')?.value||'';
+  const names = getClientNamesWithBiz();
+  const q = val.toLowerCase().trim();
+  const list = q ? names.filter(x=>x.name.toLowerCase().includes(q)||(x.biz_no||'').includes(q)).slice(0,30) : names.slice(0,50);
+  if(!list.length){ ac.style.display='none'; return; }
+  ac.innerHTML = list.map(m=>`
+    <div class="ac-item" style="display:flex;justify-content:space-between;align-items:center"
+      onmousedown="selectCommonPartner('${m.name.replace(/'/g,"\\'")}','${(m.biz_no||'').replace(/'/g,"\\'")}');event.preventDefault()">
+      <span>${q?_hlMatch(m.name,q):m.name}</span>
+      ${m.biz_no?`<span style="font-size:11px;color:var(--text3);margin-left:8px">${m.biz_no}</span>`:''}
+    </div>`).join('');
+  ac.style.display='block';
+}
+function selectCommonPartner(name, bizNo){
+  // 공통 거래처 필드 반영
+  const nameEl = document.getElementById('e-partner-common');
+  const bizEl  = document.getElementById('e-bizno-common');
+  if(nameEl) nameEl.value = name;
+  if(bizEl && bizNo) bizEl.value = bizNo;
+  hideAc('e-partner-common');
+  // 매입매출전표의 e-partner에도 동기화
+  const tradePartner = document.getElementById('e-partner');
+  const tradeBiz     = document.getElementById('e-bizno');
+  if(tradePartner) tradePartner.value = name;
+  if(tradeBiz && bizNo) tradeBiz.value = bizNo;
+  // 분개 행 거래처 자동 채우기
+  fillPartnerToRows(name);
+}
+function syncBizNo(){
+  // 매입매출전표의 e-bizno를 e-bizno-common과 동기화
+  const common = document.getElementById('e-bizno-common')?.value||'';
+  const el = document.getElementById('e-bizno');
+  if(el && common && !el.value) el.value = common;
+}
+
+// ── 분개 행 거래처 자동완성 ──
+async function showRowPartnerAc(rowId, val){
+  const ac = document.getElementById('ac-jtp-'+rowId);
+  if(!ac) return;
+  if(!G.clientsLoaded){
+    ac.innerHTML='<div style="padding:8px 12px;font-size:12px;color:var(--text3)">로딩 중...</div>';
+    ac.style.display='block';
+    await loadClientsBackground();
+  }
+  const q = (val||'').toLowerCase().trim();
+  const names = getClientNamesWithBiz();
+  const list = q
+    ? names.filter(x=>x.name.toLowerCase().includes(q)||(x.biz_no||'').includes(q)).slice(0,20)
+    : names.slice(0,30);
+  if(!list.length){ ac.style.display='none'; return; }
+  ac.innerHTML = list.map(m=>`
+    <div class="ac-item" style="display:flex;justify-content:space-between;gap:8px"
+      onmousedown="selectRowPartner('${rowId}','${m.name.replace(/'/g,"\\'")}');event.preventDefault()">
+      <span>${q?_hlMatch(m.name,q):m.name}</span>
+      ${m.biz_no?`<span style="font-size:10px;color:var(--text3)">${m.biz_no}</span>`:''}
+    </div>`).join('');
+  ac.style.display='block';
+}
+function selectRowPartner(rowId, name){
+  const inp = document.getElementById('jtp-'+rowId);
+  if(inp) inp.value = name;
+  hideAc('jtp-'+rowId);
+  updateRow(rowId, 'partner', name);
+}
+
+async function onPartnerInput(val){
   fillPartnerToRows(val);
-  // 거래처 목록에서 중간 글자 검색
-  const names = getClientNamesWithBiz();  // [{name, biz_no}]
   const q = val.toLowerCase().trim();
   const ac = document.getElementById('ac-e-partner');
   if(!ac) return;
   if(!q){ ac.style.display='none'; return; }
-  const matches = names.filter(x=>x.name.toLowerCase().includes(q) || (x.biz_no||'').includes(q)).slice(0,30);
-  if(!matches.length){ ac.style.display='none'; return; }
+  if(!G.clientsLoaded) await loadClientsBackground();
+  const names = getClientNamesWithBiz();
+  const matches = names.filter(x=>x.name.toLowerCase().includes(q)||(x.biz_no||'').includes(q)).slice(0,30);
+  if(!matches.length){ ac.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3)">검색 결과 없음</div>'; ac.style.display='block'; return; }
   ac.innerHTML = matches.map(m=>`
     <div class="ac-item" style="display:flex;justify-content:space-between;align-items:center"
       onmousedown="selectPartner('${m.name.replace(/'/g,"\\'")}','${(m.biz_no||'').replace(/'/g,"\\'")}');event.preventDefault()">
@@ -904,16 +1047,19 @@ function onPartnerInput(val){
     </div>`).join('');
   ac.style.display = 'block';
 }
-function onPartnerFocus(){
-  const val = document.getElementById('e-partner')?.value||'';
-  const names = getClientNamesWithBiz();
+async function onPartnerFocus(){
   const ac = document.getElementById('ac-e-partner');
   if(!ac) return;
-  const list = val
-    ? names.filter(x=>x.name.toLowerCase().includes(val.toLowerCase())).slice(0,30)
-    : names.slice(0,50);
-  if(!list.length){ ac.style.display='none'; return; }
+  if(!G.clientsLoaded){
+    ac.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3)">거래처 로딩 중...</div>';
+    ac.style.display='block';
+    await loadClientsBackground();
+  }
+  const val = document.getElementById('e-partner')?.value||'';
+  const names = getClientNamesWithBiz();
   const q = val.toLowerCase().trim();
+  const list = q ? names.filter(x=>x.name.toLowerCase().includes(q)||(x.biz_no||'').includes(q)).slice(0,30) : names.slice(0,50);
+  if(!list.length){ ac.style.display='none'; return; }
   ac.innerHTML = list.map(m=>`
     <div class="ac-item" style="display:flex;justify-content:space-between;align-items:center"
       onmousedown="selectPartner('${m.name.replace(/'/g,"\\'")}','${(m.biz_no||'').replace(/'/g,"\\'")}');event.preventDefault()">
@@ -931,13 +1077,16 @@ function selectPartner(name, bizNo){
   fillPartnerToRows(name);
 }
 function getClientNamesWithBiz(){
-  // 일반 거래처에서 name + biz_no 반환
   if(G.clients.일반.length > 0){
     return G.clients.일반
       .filter(r=>r.use_yn !== 'X')
       .map(r=>({name: r.name, biz_no: r.biz_no||''}));
   }
-  // 로드 안 됐으면 빈 배열
+  // 아직 미로드면 즉시 로드 후 빈 배열 반환 (다음 입력 때 반영됨)
+  if(!G.clientsLoaded && !G._clientsLoading){
+    G._clientsLoading = true;
+    loadClientsBackground().then(()=>{ G._clientsLoading = false; });
+  }
   return [];
 }
 function getClientNames(){
@@ -946,6 +1095,9 @@ function getClientNames(){
 function fillPartnerToRows(val){
   G.eRows.forEach(r=>{ if(!r.partner||r.partner==='') r.partner=val; });
   const tb=document.getElementById('jt-body'); if(tb)tb.innerHTML=buildEntryRows();
+  // 공통 거래처 필드도 업데이트
+  const commonEl=document.getElementById('e-partner-common');
+  if(commonEl && !commonEl.value) commonEl.value=val;
 }
 
 function applyTax(){
@@ -1031,8 +1183,12 @@ function previewEntry(){
   const team=document.getElementById('e-team')?.value||'';
   const channel=document.getElementById('e-channel')?.value||'';
   const memo=document.getElementById('e-memo')?.value||'';
-  const partner=document.getElementById('e-partner')?.value||G.eRows[0]?.partner||'';
-  const bizno=document.getElementById('e-bizno')?.value||'';
+  // 거래처: 매입매출=e-partner, 일반=e-partner-common, 없으면 분개 첫 행
+  const partner=document.getElementById('e-partner')?.value
+    || document.getElementById('e-partner-common')?.value
+    || G.eRows[0]?.partner||'';
+  const bizno=document.getElementById('e-bizno')?.value
+    || document.getElementById('e-bizno-common')?.value||'';
   const evid=document.getElementById('e-evid')?.value||'';
   const evno=document.getElementById('e-evno')?.value||'';
   const supply=pn(document.getElementById('e-supply')?.value||debit);
@@ -1528,14 +1684,25 @@ function cancelRename(type){
 async function loadClients(){
   if(G.clientsLoaded) return;
   try{
-    const [{data:gen},{data:card},{data:fin}] = await Promise.all([
-      sb.from('clients_general').select('*').order('code'),
-      sb.from('clients_card').select('*').order('code'),
-      sb.from('clients_finance').select('*').order('code'),
+    const fetchAll = async (table, cols) => {
+      let all=[], from=0, BATCH=1000;
+      while(true){
+        const {data,error} = await sb.from(table).select(cols).order('code').range(from, from+BATCH-1);
+        if(error||!data||data.length===0) break;
+        all = all.concat(data);
+        if(data.length < BATCH) break;
+        from += BATCH;
+      }
+      return all;
+    };
+    const [gen, card, fin] = await Promise.all([
+      fetchAll('clients_general', '*'),
+      fetchAll('clients_card',    '*'),
+      fetchAll('clients_finance', '*'),
     ]);
-    G.clients.일반 = gen||[];
-    G.clients.카드 = card||[];
-    G.clients.금융 = fin||[];
+    G.clients.일반 = gen;
+    G.clients.카드 = card;
+    G.clients.금융 = fin;
     G.clientsLoaded = true;
   }catch(e){ toast('거래처 로드 실패: '+e.message,'error'); }
 }
@@ -1726,7 +1893,7 @@ function _debounceRender(){
   }, 120);
 }
 function _setClientTab(tab){ _clientTab=tab; _clientEdit=null; _clientSearch=''; _renderClientsUI(); }
-function _reloadClients(){ G.clientsLoaded=false; renderClients(); }
+function _reloadClients(){ G.clientsLoaded=false; G.clients={일반:[],카드:[],금융:[]}; renderClients(); }
 function _startAddClient(){ document.getElementById('client-add-form').style.display='block'; document.getElementById('nadd-name')?.focus(); }
 function _startEditClient(id){ _clientEdit = G.clients[_clientTab].find(r=>r.id===id)||null; _renderClientsUI(); setTimeout(()=>document.getElementById('ec-name')?.focus(),50); }
 function _cancelEdit(){ _clientEdit=null; _renderClientsUI(); }
